@@ -10,10 +10,6 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: android-apk
-  cancel-in-progress: false
-
 jobs:
   apk:
     runs-on: ubuntu-latest
@@ -22,38 +18,30 @@ jobs:
       VERSION_CODE: ${{ github.run_number }}
       VERSION_NAME: 1.0.${{ github.run_number }}
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Check signing secrets
-        env:
-          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KSP: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KA: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KP: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      # No marketplace actions: plain shell with the tools already on GitHub's Ubuntu runner.
+      - name: Check out
         run: |
-          missing=""
-          [ -n "$KS" ]  || missing="$missing ANDROID_KEYSTORE_BASE64"
-          [ -n "$KSP" ] || missing="$missing ANDROID_KEYSTORE_PASSWORD"
-          [ -n "$KA" ]  || missing="$missing ANDROID_KEY_ALIAS"
-          [ -n "$KP" ]  || missing="$missing ANDROID_KEY_PASSWORD"
-          if [ -n "$missing" ]; then
-            echo "::error::Missing repository secrets:$missing. See README, 'One-time signing setup'."
-            exit 1
+          git init -q .
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git fetch -q --depth 1 origin "$GITHUB_SHA"
+          git checkout -q FETCH_HEAD
+
+      - name: Set up Node 22 and Java 21
+        run: |
+          NODE_DIR=$(ls -d /opt/hostedtoolcache/node/22.*/x64 2>/dev/null | sort -V | tail -1)
+          if [ -z "$NODE_DIR" ]; then
+            curl -fsSL https://nodejs.org/dist/v22.12.0/node-v22.12.0-linux-x64.tar.xz | tar -xJ -C "$RUNNER_TEMP"
+            NODE_DIR="$RUNNER_TEMP/node-v22.12.0-linux-x64"
           fi
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-          cache: gradle
+          echo "$NODE_DIR/bin" >> "$GITHUB_PATH"
+          echo "JAVA_HOME=${JAVA_HOME_21_X64}" >> "$GITHUB_ENV"
+          echo "${JAVA_HOME_21_X64}/bin" >> "$GITHUB_PATH"
 
       - name: Install
-        run: npm ci
+        run: |
+          node --version
+          java -version
+          npm ci
 
       - name: Unit tests
         run: npm test
