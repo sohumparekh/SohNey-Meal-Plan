@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #faf7f2;
+  --card: #ffffff;
+  --ink: #2b2118;
+  --muted: #7a6a5c;
+  --line: #ece4d8;
+  --brand: #c2410c;
+  --brand-ink: #ffffff;
+  --soft: #fff3e8;
+  --ok: #15803d;
+  --warn-bg: #fef3c7;
+  --warn-ink: #78350f;
+  --wa: #1fa855;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17130f;
+    --card: #221c16;
+    --ink: #f3ece4;
+    --muted: #b3a493;
+    --line: #3a3027;
+    --brand: #f97316;
+    --brand-ink: #1a1009;
+    --soft: #2d2117;
+    --ok: #4ade80;
+    --warn-bg: #3b2a10;
+    --warn-ink: #fcd34d;
+    --wa: #25d366;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-brand: var(--brand);
+  --color-brand-ink: var(--brand-ink);
+  --color-soft: var(--soft);
+  --color-ok: var(--ok);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-ink: var(--warn-ink);
+  --color-wa: var(--wa);
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+}
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }

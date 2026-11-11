@@ -44,6 +44,11 @@ export interface Dish {
   ingredients: DishIngredient[];
   prepAhead?: PrepAhead;
   planBId: string;
+  /** Short recipe in the cook's language, sent with the menu until she has made it once. */
+  recipeCook?: string;
+  active?: boolean;
+  rating?: number;
+  lastCookedAt?: string | null;
 }
 
 const MACROS: Record<string, string> = {
@@ -51,7 +56,7 @@ const MACROS: Record<string, string> = {
   ROTI: "atta 150, ghee 10",
 };
 
-function parseIngredients(spec: string): DishIngredient[] {
+export function parseIngredients(spec: string): DishIngredient[] {
   const expanded = spec.replace(/\b(TADKA|ROTI)\b/g, (m) => MACROS[m]);
   return expanded
     .split(",")
@@ -68,15 +73,22 @@ const SLOT: Record<string, Slot> = { b: "breakfast", l: "lunch", d: "dinner" };
 const EFFORT: Record<string, Effort> = { q: "quick", m: "medium", l: "long" };
 const KIND: Record<string, MealKind> = { rs: "roti_sabzi", dr: "dal_rice", ot: "other" };
 
+// Prep texts are plain actions. The message builder adds "Aaj raat" / "Kal subah" and
+// which meal it is for, based on leadHours and the meal time.
 const SOAK = (what: string, whatCook: string, hours = 10): PrepAhead => ({
-  en: `Soak ${what} tonight after dinner`,
-  cook: `Aaj raat dinner ke baad ${whatCook} paani mein bhigo dena`,
+  en: `Soak ${what} in water`,
+  cook: `${whatCook} paani mein bhigo dena`,
   leadHours: hours,
 });
 const BATTER: PrepAhead = {
-  en: "Soak idli rice + urad dal in the morning, grind at night, leave batter to ferment overnight",
-  cook: "Subah idli chawal aur urad dal bhigo dena, raat ko pees ke batter rakh dena (khameer ke liye)",
+  en: "Soak idli rice + urad dal; grind in the evening and leave the batter to ferment overnight",
+  cook: "idli chawal aur urad dal bhigo dena, shaam ko pees ke batter khameer ke liye rakh dena",
   leadHours: 24,
+};
+const SPROUT_MATKI: PrepAhead = {
+  en: "Soak matki; next morning drain and keep covered to sprout",
+  cook: "matki bhigo dena, agle din subah paani nikaal ke dhak ke rakhna (ankur ke liye)",
+  leadHours: 36,
 };
 
 type Row = [
@@ -136,12 +148,12 @@ const ROWS: Row[] = [
     "atta 200, potato 4, onion 1, green_chilli 2, curry_leaves 1, oil 250, TADKA, coriander? 0.25", "masala_bhakri"],
   ["sabudana_khichdi", "Sabudana Khichdi", "Sabudana khichdi", "b", "Maharashtrian", "m", "ot",
     "sabudana 150, potato 1, peanuts 60, green_chilli 2, lemon 1, ghee 20, coriander? 0.25", "batata_poha",
-    SOAK("1 cup sabudana (just enough water to cover)", "1 katori sabudana (thoda hi paani)", 8)],
+    SOAK("1 cup sabudana (just enough water to cover)", "1 katori sabudana (thoda hi)", 8)],
   ["khaman", "Khaman Dhokla", "Khaman", "b", "Gujarati", "m", "ot",
     "besan 150, lemon 1, eno 5, green_chilli 2, curry_leaves 1, sesame 5, sugar 15, oil 20, coriander? 0.25", "besan_chilla"],
   ["handvo", "Dudhi Handvo", "Handvo", "bd", "Gujarati", "l", "ot",
     "handvo_flour 200, curd 150, dudhi 150, sesame 10, green_chilli 2, ginger 5, oil 30", "besan_chilla",
-    { en: "Mix handvo flour with curd and leave covered overnight to ferment", cook: "Raat ko handvo ka atta dahi mein mila ke dhak ke rakh dena", leadHours: 10 }],
+    { en: "Mix handvo flour with curd and leave covered to ferment", cook: "handvo ka atta dahi mein mila ke dhak ke rakh dena", leadHours: 10 }],
   ["avocado_toast", "Avocado Toast", "Avocado toast", "b", "Continental", "q", "ot",
     "protein_bread 4, avocado 1, lemon 0.5, tomato 1, chilli_flakes 1, olive_oil 5", "besan_chilla"],
   ["pb_banana_toast", "Peanut Butter Banana Toast", "Peanut butter toast", "b", "Continental", "q", "ot",
@@ -158,7 +170,7 @@ const ROWS: Row[] = [
     "oats 100, onion 1, tomato 1, carrot 80, frozen_peas 40, green_chilli 1, oil 10", "upma"],
   ["overnight_oats", "Overnight Oats with Banana", "Overnight oats", "b", "Continental", "q", "ot",
     "oats 100, milk 300, banana 2, chia 15, honey 10", "upma",
-    { en: "Mix oats + milk + chia in a jar tonight and keep in the fridge", cook: "Raat ko oats, doodh aur chia ek dabbe mein mila ke fridge mein rakh dena", leadHours: 8 }],
+    { en: "Mix oats + milk + chia in a jar and keep in the fridge", cook: "oats, doodh aur chia ek dabbe mein mila ke fridge mein rakh dena", leadHours: 8 }],
 
   // ======================= ROTI + SABZI =======================
   ["palak_paneer", "Palak Paneer + Roti", "Palak paneer, roti", "ld", "Punjabi", "m", "rs",
@@ -223,7 +235,7 @@ const ROWS: Row[] = [
     "whole_moong 120, tomato 1, garlic 5, TADKA, ROTI", "batata_shaak", SOAK("1/2 cup whole moong", "aadhi katori sabut moong", 8)],
   ["matki_usal", "Matki Usal + Chapati", "Matki usal, chapati", "l", "Maharashtrian", "m", "rs",
     "matki 120, onion 1, tomato 1, goda_masala 8, desiccated_coconut 15, TADKA, ROTI, coriander? 0.25", "batata_shaak",
-    { en: "Soak matki tonight; tomorrow morning drain and keep covered to sprout (ready day after)", cook: "Aaj raat matki bhigo dena, kal subah paani nikaal ke dhak ke rakh dena (ankur aane ke liye)", leadHours: 36 }],
+    SPROUT_MATKI],
   ["pithla_bhakri", "Pithla Bhakri", "Pithla bhakri", "ld", "Maharashtrian", "q", "rs",
     "besan 100, onion 1, garlic 10, green_chilli 3, jowar_atta 200, TADKA, coriander? 0.25", "kadhi_khichdi"],
   ["thalipeeth_pithla", "Thalipeeth + Pithla", "Thalipeeth, pithla", "d", "Maharashtrian", "m", "rs",
@@ -304,7 +316,7 @@ const ROWS: Row[] = [
     "potato 3, cauliflower 150, capsicum 1, frozen_peas 100, tomato 4, onion 2, garlic 10, pav_bhaji_masala 15, butter 60, pav 8, lemon 1, coriander 0.5", "masala_khichdi"],
   ["misal_pav", "Misal Pav", "Misal pav", "d", "Maharashtrian", "m", "ot",
     "matki 150, onion 2, tomato 2, garlic 10, ginger 10, misal_masala 15, desiccated_coconut 20, farsan 120, pav 6, lemon 1, coriander 0.5", "pithla_bhakri",
-    { en: "Soak matki tonight; tomorrow morning drain and keep covered to sprout (misal is the day after)", cook: "Aaj raat matki bhigo dena, kal subah paani nikaal ke dhak ke rakh dena (parso misal hai)", leadHours: 36 }],
+    SPROUT_MATKI],
   ["sev_puri", "Sev Puri", "Sev puri", "d", "Chaat & street", "q", "ot",
     "papdi_puri 24, potato 2, onion 1, sev 80, coriander 0.5, mint 0.25, green_chilli 2, imli_chutney 60, chaat_masala 3", "masala_khichdi"],
   ["pani_puri", "Pani Puri", "Pani puri", "d", "Chaat & street", "m", "ot",
