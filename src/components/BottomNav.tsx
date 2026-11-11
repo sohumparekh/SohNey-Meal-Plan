@@ -1,6 +1,4 @@
-"use client";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Link, useLocation } from "react-router-dom";
 
 const TABS = [
   { href: "/", label: "Today", icon: "M3 12l9-8 9 8M5 10v10h5v-6h4v6h5V10" },
@@ -11,8 +9,8 @@ const TABS = [
 ];
 
 export function BottomNav() {
-  const path = usePathname();
-  if (path.startsWith("/login") || path.startsWith("/counter")) return null;
+  const path = useLocation().pathname;
+  if (path.startsWith("/counter")) return null;
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-card/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
       <ul className="mx-auto flex max-w-xl">
@@ -21,7 +19,7 @@ export function BottomNav() {
           return (
             <li key={t.href} className="flex-1">
               <Link
-                href={t.href}
+                to={t.href}
                 className={`flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium ${active ? "text-brand" : "text-muted"}`}
               >
                 <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>

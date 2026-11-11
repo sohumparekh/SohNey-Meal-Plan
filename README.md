@@ -1,85 +1,89 @@
 # Ghar ka Menu
 
-A small private app for one household: a 4-week rotating vegetarian menu, weekly shopping
+An Android app for one household: a 4-week rotating vegetarian menu, weekly shopping
 lists that come straight from the menu, and a WhatsApp message for the cook every night
 with tomorrow's meals, a Plan B for each, and any soaking or prep to do tonight.
 
-**Goal:** the cook never has to call in the evening to ask what to make, and the
-ingredients are always at home.
+**Everything lives on the phone.** No server, no account, no internet needed. The only
+things that leave the app are the WhatsApp messages you send and the Blinkit search links.
+
+## Install on the phone (2 minutes)
+
+1. On the phone, open **github.com/sohumparekh/SohNey-Meal-Plan/releases/latest**.
+2. Under *Assets*, tap the `ghar-ka-menu-….apk` file to download it.
+3. Open the downloaded file. If Android asks, allow **Install unknown apps** for your
+   browser (or Files app), go back, and tap **Install**.
+4. Open **Ghar ka Menu**. Go to **Settings**:
+   - tap **Allow notifications**,
+   - if it says exact alarms are off, tap **Allow exact reminders** and switch it on,
+   - enter Vimal's WhatsApp number and tap **Save settings**.
+
+**Updating:** download the newer APK from the latest release and install it the same
+way. It installs over the old app and keeps all data, because every release is signed
+with the same key.
 
 ## How it works
 
 - **Week = Saturday to Friday.** The weekly order is picked up from the office grocer on
-  Friday evening, after the cook has already made Friday's dinner, so fresh food is
-  available from Saturday. Fragile items (palak, methi, mushrooms, pav, paneer) are
-  planned early in the week; hardy dishes later. An optional Tuesday top-up covers
-  fragile items needed Wednesday to Friday.
-- **Two kinds of ingredients.** Staples (atta, dal, oil, spices, onion, potato...) are
-  never counted: they come back on a restock cycle, or when someone taps "running low".
-  Fresh and specialty items are computed exactly from the approved menu and rounded to
-  what the shop sells.
-- **Rotation, not optimisation.** The 105-dish library and the 28-day rotation are in
-  `src/lib/seed/`. Each Thursday the app drafts next week from the rotation (swapping out
-  anything eaten recently or rated badly). We swap what we like and approve.
-- **The cook only uses WhatsApp.** Phase 1: the app prepares the message and opens
-  WhatsApp with it filled in; we tap Send. Phase 2 (later) can send by itself through
-  the WhatsApp Business Cloud API; see `docs/phase-2-whatsapp.md`.
+  Friday evening, after the cook has made Friday's dinner, so fresh food is used from
+  Saturday. Fragile items (palak, methi, mushrooms, pav, paneer) are planned early in the
+  week, hardy dishes later, with an optional Tuesday top-up.
+- **Staples vs fresh.** Staples (atta, dal, oil, spices, onion, potato…) are never
+  counted; they come back on a restock cycle or when marked "running low". Fresh items
+  are computed from the menu and rounded to shop units.
+- **Rotation.** 105 dishes and a 28-day rotation (`src/lib/seed/`). From Thursday the app
+  drafts next week; swap what you like and approve.
+- **Reminders** (India time, editable in Settings): every day 9 pm *Send tomorrow's menu*,
+  4 pm *Check tonight's dinner*, Thursday 8 pm *Plan next week*, Friday 10 am *Send grocery
+  order*. Tapping one opens a screen with one big **Send on WhatsApp** button. Reminders
+  are set 4 weeks ahead each time the app opens and survive phone restarts.
+- **Cook messages** in Hinglish, Hindi (Devanagari) or English (Settings).
+- **New dishes:** type one in, or **Add with Claude**: the app copies a prompt, you paste
+  it in the Claude app, and paste the JSON reply back. No API keys in the app.
+- **Backups:** automatic weekly backup to `Documents/GharKaMenu` (kept if the app is
+  uninstalled), plus **Share plan** to send the whole household file over WhatsApp/Drive
+  and **Import** to load it on another phone or after a reinstall. Newest data wins; you
+  are warned before loading an older file.
 
-## Screens
-
-| Tab | What it's for |
-|---|---|
-| Today | Today's three meals (swap, eating out, Plan B, servings, rate), tomorrow's menu with the big "Send to cook" button, and a box to paste the cook's reply ("paneer khatam") |
-| Week | All 21 meals of a week on one screen. Tap to swap from 5 suggestions, then Approve |
-| Shopping | Shubham (call / show at counter / copy), Blinkit (with search links), Top-up, Staples |
-| Dishes | Library, search, turn dishes on/off, add new dishes from a link or a name (Claude drafts it) |
-| Settings | Cook and grocer numbers, reminder times, notifications, message log |
-
-## Tech
-
-Next.js 15 (App Router) + TypeScript + Tailwind 4, Postgres (Supabase), web push, Claude
-API (Haiku 5.5) for drafting dishes only. The planner is plain TypeScript in
-`src/lib/core/` with unit tests (`npm test`).
+## Code
 
 ```
-src/lib/seed/        dish library, ingredient master, rotation.json
-src/lib/core/        planner: dates, shelf life, draft, suggestions, shopping, eating out, cook messages
-src/lib/db/          schema, idempotent setup + seed, data access
-src/lib/jobs.ts      scheduled jobs (draft, reminders, top-up check)
-src/lib/messaging.ts cook channel: wa.me link now, Cloud API later
-src/app/             screens, server actions, API routes
-scripts/             rotation generator, local DB setup
+src/lib/seed/        dish library, ingredients, Hindi names, rotation.json
+src/lib/core/        planner: dates, shelf life, weekly draft, suggestions, shopping lists,
+                     eating out, cook messages (3 languages)
+src/lib/dishImport.ts  "Add with Claude" prompt + JSON validation
+src/data/            on-device database (IndexedDB via Dexie), backup/import
+src/native/          reminders (local notifications), WhatsApp/Blinkit links, files, share
+src/screens/         Today, Week, Shopping, Send, Dishes, Add dish, Settings
+android/             Capacitor Android project
+.github/workflows/   builds the signed APK and publishes a GitHub Release
 ```
 
-## Setup (about 20 minutes, once)
-
-1. **Supabase**: create a free project (region: Mumbai). Project Settings, Database,
-   copy the **Transaction pooler** connection string (port 6543).
-2. **Secrets**: make three long random strings (`openssl rand -hex 24`) for
-   `SESSION_SECRET`, `CRON_SECRET`, and choose a `HOUSEHOLD_PASSCODE`. Generate push keys
-   with `npx web-push generate-vapid-keys`. Get an Anthropic API key.
-3. **Vercel**: import this GitHub repo, add the variables from `.env.example`, deploy.
-4. **Database**: create tables and load the dishes (safe to repeat):
-   `curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://YOUR-APP.vercel.app/api/setup`
-5. **Reminders**: in the Supabase SQL editor run `supabase/cron.sql` after putting in
-   your app URL and `CRON_SECRET`.
-6. **Phones**: open the app URL, enter the passcode, Add to Home Screen, open it from the
-   Home Screen, then Settings, Turn on notifications (iPhone needs iOS 16.4 or later and
-   the Home Screen app for this). Put the cook's WhatsApp number in Settings.
-
-## Local development
+React + Vite + Tailwind, wrapped with Capacitor 8.
 
 ```
-cp .env.example .env.local      # point DATABASE_URL at a local Postgres
 npm install
-npm run db:setup
-npm run dev
-npm test                        # planner unit tests
-npm run rotation                # regenerate the 4-week rotation (writes docs/rotation-draft.md)
+npm test          # planner, data and reminder tests
+npm run dev       # run in a browser (reminders only work in the APK)
+npm run rotation  # regenerate the 4-week rotation
 ```
 
-## Maintenance
+## Building the APK
 
-None expected. The 15-minute database cron keeps the free Supabase project active,
-prunes old logs, and makes sure the current week always exists. If the cook gets a new
-number or reminder times change, edit them in Settings.
+Every push to `claude/household-meal-planner-bz8uhj` (or **Actions → Android APK → Run
+workflow**) builds a signed release APK and publishes it as a GitHub Release
+`v1.0.<build>`. The build number always goes up, so each APK installs over the last.
+
+### One-time signing setup
+
+The workflow needs four repository secrets (GitHub → repo **Settings → Secrets and
+variables → Actions → New repository secret**): `ANDROID_KEYSTORE_BASE64`,
+`ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`. Their values are in
+the `github-secrets.txt` file that came with `release.jks`. Keep both files somewhere safe:
+**every future release must be signed with the same key**, or Android will refuse to
+update the installed app (you would have to uninstall, losing data unless restored from a
+backup).
+
+To make a new key instead (only for a fresh install):
+`keytool -genkeypair -keystore release.jks -storetype PKCS12 -alias gharkamenu -keyalg RSA -keysize 2048 -validity 10000`,
+then `base64 -w0 release.jks` for `ANDROID_KEYSTORE_BASE64`.

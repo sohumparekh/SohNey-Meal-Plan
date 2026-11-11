@@ -1,0 +1,96 @@
+name: Android APK
+
+# Builds a signed release APK and publishes it as a GitHub Release.
+# Runs on every push to the app branch and on demand (Actions tab → Run workflow).
+on:
+  push:
+    branches: [claude/household-meal-planner-bz8uhj]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-apk
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VERSION_CODE: ${{ github.run_number }}
+      VERSION_NAME: 1.0.${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check signing secrets
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KSP: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KA: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KP: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=""
+          [ -n "$KS" ]  || missing="$missing ANDROID_KEYSTORE_BASE64"
+          [ -n "$KSP" ] || missing="$missing ANDROID_KEYSTORE_PASSWORD"
+          [ -n "$KA" ]  || missing="$missing ANDROID_KEY_ALIAS"
+          [ -n "$KP" ]  || missing="$missing ANDROID_KEY_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing. See README, 'One-time signing setup'."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Install
+        run: npm ci
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build web app and copy into Android project
+        run: |
+          npm run build
+          npx cap sync android
+
+      - name: Build signed release APK
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          export ANDROID_KEYSTORE_FILE="$RUNNER_TEMP/release.jks"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$ANDROID_KEYSTORE_FILE"
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+          rm -f "$ANDROID_KEYSTORE_FILE"
+
+      - name: Verify signature
+        run: |
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" verify --print-certs "$APK" | tee signature.txt
+          grep -q "Signer #1 certificate SHA-256" signature.txt
+          cp "$APK" "ghar-ka-menu-$VERSION_NAME.apk"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v$VERSION_NAME" "ghar-ka-menu-$VERSION_NAME.apk" \
+            --target "$GITHUB_SHA" \
+            --title "Ghar ka Menu $VERSION_NAME" \
+            --latest \
+            --notes "Android app, version $VERSION_NAME (build $VERSION_CODE). Install over the previous version: your data stays. Built from ${GITHUB_SHA::7}."

@@ -30,10 +30,13 @@ export interface Week {
   pickupDoneAt?: string | null;
 }
 
+export type CookLanguage = "hinglish" | "hindi" | "english";
+
 export interface Settings {
   householdName: string;
   cookName: string;
   cookPhone: string;
+  cookLanguage: CookLanguage;
   grocerName: string;
   grocerPhone: string;
   servingsDefault: number;
@@ -44,15 +47,14 @@ export interface Settings {
   /** Where items sold in both places (pav, sev, mushrooms...) are ordered. */
   eitherGoesTo: "blinkit" | "grocer";
   blinkitLinks: boolean;
-  /** Schedule, India time. Days: 0 = Sunday ... 6 = Saturday. */
-  draftDay: number;
-  draftTime: string;
-  approveReminderDay: number;
-  approveReminderTime: string;
-  nightlyTime: string;
+  /** Reminders, India time ("HH:MM"). Days: 0 = Sunday ... 6 = Saturday. */
+  remindersOn: boolean;
+  dailyMenuTime: string;
   dinnerCheckTime: string;
-  topupCheckDay: number;
-  topupCheckTime: string;
+  planWeekDay: number;
+  planWeekTime: string;
+  groceryDay: number;
+  groceryTime: string;
   mealHours: Record<Slot, number>;
 }
 
@@ -60,6 +62,7 @@ export const DEFAULT_SETTINGS: Settings = {
   householdName: "Home",
   cookName: "Vimal",
   cookPhone: "",
+  cookLanguage: "hinglish",
   grocerName: "Shubham Vegetable",
   grocerPhone: "8657652535",
   servingsDefault: 2,
@@ -68,14 +71,13 @@ export const DEFAULT_SETTINGS: Settings = {
   topupEnabled: true,
   eitherGoesTo: "blinkit",
   blinkitLinks: true,
-  draftDay: 4,
-  draftTime: "20:00",
-  approveReminderDay: 5,
-  approveReminderTime: "09:00",
-  nightlyTime: "21:00",
+  remindersOn: true,
+  dailyMenuTime: "21:00",
   dinnerCheckTime: "16:00",
-  topupCheckDay: 2,
-  topupCheckTime: "10:00",
+  planWeekDay: 4,
+  planWeekTime: "20:00",
+  groceryDay: 5,
+  groceryTime: "10:00",
   mealHours: { breakfast: 8, lunch: 12, dinner: 20 },
 };
 

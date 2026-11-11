@@ -1,5 +1,4 @@
-"use client";
-import Link from "next/link";
+import { Link } from "react-router-dom";
 import { useMemo, useState } from "react";
 
 export interface DishRow { id: string; nameEn: string; nameCook: string; slots: string[]; cuisine: string; effort: string; active: boolean; rating: number; prep: boolean }
@@ -30,7 +29,7 @@ export function DishLibrary({ dishes }: { dishes: DishRow[] }) {
       <ul className="divide-y divide-line rounded-2xl border border-line bg-card">
         {shown.map((d) => (
           <li key={d.id}>
-            <Link href={`/dishes/${d.id}`} className="flex min-h-14 items-center gap-3 px-4 py-2 active:bg-soft">
+            <Link to={`/dishes/${d.id}`} className="flex min-h-14 items-center gap-3 px-4 py-2 active:bg-soft">
               <div className="min-w-0 flex-1">
                 <div className="font-medium">{d.nameEn}{d.prep && " ★"}</div>
                 <div className="truncate text-xs text-muted">{d.cuisine} · {d.effort} · {d.slots.join(", ")}</div>

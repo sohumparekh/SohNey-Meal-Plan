@@ -46,6 +46,8 @@ export interface Dish {
   planBId: string;
   /** Short recipe in the cook's language, sent with the menu until she has made it once. */
   recipeCook?: string;
+  /** Devanagari name for dishes added in the app (seed dishes use seed/hindi.ts). */
+  nameCookHi?: string;
   active?: boolean;
   rating?: number;
   lastCookedAt?: string | null;

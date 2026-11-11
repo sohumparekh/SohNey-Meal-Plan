@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Link } from "react-router-dom";
 
 export function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <section className={`rounded-2xl border border-line bg-card p-4 shadow-sm ${className}`}>{children}</section>;
@@ -22,7 +22,7 @@ export function PageTitle({ title, sub }: { title: string; sub?: string }) {
 export function Pill({ children, active, href }: { children: React.ReactNode; active?: boolean; href: string }) {
   return (
     <Link
-      href={href}
+      to={href}
       className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium ${active ? "bg-brand text-brand-ink" : "border border-line bg-card text-ink"}`}
     >
       {children}

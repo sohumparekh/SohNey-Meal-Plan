@@ -1,6 +1,5 @@
-"use client";
 import { useState, useTransition } from "react";
-import { approveWeekAction, redraftWeekAction } from "@/app/actions";
+import { approveWeek, redraftWeek } from "@/data/repo";
 import { SwapSheet, type DishLite } from "./SwapSheet";
 
 export interface WeekCell {
@@ -54,7 +53,7 @@ export function WeekGrid({
         {status === "draft" ? (
           <button
             disabled={pending}
-            onClick={() => start(() => approveWeekAction(weekStart))}
+            onClick={() => start(() => approveWeek(weekStart))}
             className="h-14 w-full rounded-xl bg-brand text-lg font-bold text-brand-ink active:opacity-80 disabled:opacity-50"
           >
             {pending ? "Approving…" : "Approve week → shopping lists"}
@@ -65,7 +64,7 @@ export function WeekGrid({
         {canRedraft && (
           <button
             disabled={pending}
-            onClick={() => { if (confirm("Start this week again from the rotation? Your swaps will be lost.")) start(() => redraftWeekAction(weekStart)); }}
+            onClick={() => { if (confirm("Start this week again from the rotation? Your swaps will be lost.")) start(() => redraftWeek(weekStart)); }}
             className="h-10 w-full text-sm text-muted underline"
           >
             Start again from the rotation

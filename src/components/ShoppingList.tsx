@@ -1,6 +1,6 @@
-"use client";
-import { useOptimistic, useState, useTransition } from "react";
-import { pickupDoneAction, stapleLowAction, tickAction } from "@/app/actions";
+import { useState, useTransition } from "react";
+import { reportStapleLow, setPickupDone, setTick } from "@/data/repo";
+import { copyText, openExternal } from "@/native/device";
 
 export interface ItemView {
   ingredientId: string;
@@ -16,10 +16,7 @@ export interface ItemView {
 export function ShoppingList({
   weekStart, list, items, emptyText,
 }: { weekStart: string; list: string; items: ItemView[]; emptyText: string }) {
-  const [, start] = useTransition();
-  const [optimistic, setOptimistic] = useOptimistic(items, (state, u: { id: string; ticked: boolean }) =>
-    state.map((i) => (i.ingredientId === u.id ? { ...i, ticked: u.ticked } : i)),
-  );
+  const optimistic = items;
   const [open, setOpen] = useState<string | null>(null);
   if (!items.length) return <p className="rounded-2xl border border-line bg-card p-6 text-center text-muted">{emptyText}</p>;
   const left = optimistic.filter((i) => !i.ticked).length;
@@ -31,7 +28,7 @@ export function ShoppingList({
           <li key={i.ingredientId} className="flex items-center gap-3 px-3">
             <button
               aria-label={i.ticked ? `Untick ${i.name}` : `Tick ${i.name}`}
-              onClick={() => start(async () => { setOptimistic({ id: i.ingredientId, ticked: !i.ticked }); await tickAction(weekStart, list, i.ingredientId, !i.ticked); })}
+              onClick={() => setTick(weekStart, list, i.ingredientId, !i.ticked)}
               className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 ${i.ticked ? "border-ok bg-ok text-white" : "border-line"}`}
             >
               {i.ticked && "✓"}
@@ -49,9 +46,9 @@ export function ShoppingList({
             </button>
             <span className="shrink-0 text-right text-sm font-semibold">{i.qty}</span>
             {i.searchUrl && (
-              <a href={i.searchUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-lg border border-line px-2 py-1 text-xs">
+              <button onClick={() => openExternal(i.searchUrl!)} className="shrink-0 rounded-lg border border-line px-2 py-2 text-xs">
                 Find ↗
-              </a>
+              </button>
             )}
           </li>
         ))}
@@ -65,7 +62,7 @@ export function PickupDone({ weekStart, done }: { weekStart: string; done: boole
   return (
     <button
       disabled={pending}
-      onClick={() => start(() => pickupDoneAction(weekStart, !done))}
+      onClick={() => start(() => setPickupDone(weekStart, !done))}
       className={`h-12 w-full rounded-xl font-semibold ${done ? "border border-line text-muted" : "bg-ok text-white"}`}
     >
       {done ? "Pickup marked done (undo)" : "Pickup done: unticked items go to top-up"}
@@ -77,7 +74,7 @@ export function CopyButton({ text, label }: { text: string; label: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
-      onClick={async () => { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+      onClick={async () => { await copyText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
       className="h-12 flex-1 rounded-xl border border-line font-medium active:bg-soft"
     >
       {copied ? "Copied ✓" : label}
@@ -101,7 +98,7 @@ export function ReportLow({ staples }: { staples: { id: string; name: string; lo
             <span>{s.name}</span>
             <button
               disabled={pending}
-              onClick={() => start(() => stapleLowAction(s.id, !s.low))}
+              onClick={() => start(() => reportStapleLow(s.id, !s.low))}
               className={`h-10 rounded-lg px-3 text-sm ${s.low ? "bg-warn-bg text-warn-ink" : "border border-line"}`}
             >
               {s.low ? "Low ✓ (undo)" : "Mark low"}

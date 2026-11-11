@@ -1,9 +1,8 @@
-"use client";
-import { useEffect, useMemo, useState, useTransition } from "react";
-import { getSuggestionsAction, swapAction } from "@/app/actions";
+import { useEffect, useMemo, useState } from "react";
+import { suggestionsFor, swapMeal } from "@/data/repo";
 import { SLOT_LABEL } from "./ui";
 
-type Suggestion = Awaited<ReturnType<typeof getSuggestionsAction>>[number];
+type Suggestion = Awaited<ReturnType<typeof suggestionsFor>>[number];
 export type DishLite = { id: string; nameEn: string; nameCook: string; slots: string[] };
 
 export function SwapSheet({
@@ -11,10 +10,10 @@ export function SwapSheet({
 }: { date: string; slot: "breakfast" | "lunch" | "dinner"; dateLabel: string; allDishes: DishLite[]; onClose: () => void }) {
   const [items, setItems] = useState<Suggestion[] | null>(null);
   const [q, setQ] = useState("");
-  const [pending, start] = useTransition();
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    getSuggestionsAction(date, slot).then(setItems).catch(() => setItems([]));
+    suggestionsFor(date, slot).then(setItems).catch(() => setItems([]));
   }, [date, slot]);
 
   const matches = useMemo(() => {
@@ -25,7 +24,11 @@ export function SwapSheet({
       .slice(0, 8);
   }, [q, allDishes, slot]);
 
-  const pick = (id: string) => start(async () => { await swapAction(date, slot, id); onClose(); });
+  const pick = async (id: string) => {
+    setBusy(true);
+    await swapMeal(date, slot, id);
+    onClose();
+  };
 
   return (
     <div className="fixed inset-0 z-40 flex items-end bg-black/40" onClick={onClose}>
@@ -40,27 +43,18 @@ export function SwapSheet({
         <ul className="space-y-2">
           {items?.map((s) => (
             <li key={s.id}>
-              <button
-                disabled={pending}
-                onClick={() => pick(s.id)}
-                className="w-full rounded-xl border border-line p-3 text-left active:bg-soft disabled:opacity-50"
-              >
+              <button disabled={busy} onClick={() => pick(s.id)} className="w-full rounded-xl border border-line p-3 text-left active:bg-soft disabled:opacity-50">
                 <div className="font-semibold">{s.nameEn}</div>
                 <div className="text-xs text-muted">{s.cuisine} · {s.effort} · {s.reason}</div>
               </button>
             </li>
           ))}
         </ul>
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Or search all dishes…"
-          className="mt-4 h-12 w-full rounded-xl border border-line bg-bg px-4"
-        />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Or search all dishes…" className="mt-4 h-12 w-full rounded-xl border border-line bg-bg px-4" />
         <ul className="mt-2 space-y-1">
           {matches.map((d) => (
             <li key={d.id}>
-              <button disabled={pending} onClick={() => pick(d.id)} className="w-full rounded-lg px-3 py-3 text-left active:bg-soft">
+              <button disabled={busy} onClick={() => pick(d.id)} className="w-full rounded-lg px-3 py-3 text-left active:bg-soft">
                 {d.nameEn} <span className="text-xs text-muted">({d.nameCook})</span>
               </button>
             </li>

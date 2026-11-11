@@ -1,6 +1,5 @@
 // Date helpers. Every date in the app is a plain "YYYY-MM-DD" string in Asia/Kolkata.
-// Using strings (not Date objects) avoids timezone drift between the server (UTC on
-// Vercel) and the phones.
+// Using strings (not Date objects) avoids timezone drift whatever zone the phone is set to.
 
 export const TZ = "Asia/Kolkata";
 

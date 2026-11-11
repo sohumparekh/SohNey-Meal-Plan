@@ -234,14 +234,14 @@ describe("cook messages", () => {
     const tue = addDays(ANCHOR, 3);
     const m = { ...meals, [mealKey(tue, "lunch")]: meal(tue, "lunch", "rajma_chawal") };
     const tasks = prepTasksForEvening(data, m, addDays(tue, -1));
-    expect(tasks.find((t) => t.dishId === "rajma_chawal")?.when).toBe("Aaj raat");
+    expect(tasks.find((t) => t.dishId === "rajma_chawal")?.when).toBe("tonight");
     expect(dailyMessage(data, m, addDays(tue, -1))).toContain("rajma paani mein bhigo dena");
   });
   it("tells the cook two evenings ahead to start batter for breakfast uttapam", () => {
     const wed = addDays(ANCHOR, 4);
     const m = { [mealKey(wed, "breakfast")]: meal(wed, "breakfast", "uttapam") };
     const tasks = prepTasksForEvening(data, m, addDays(wed, -2));
-    expect(tasks[0]?.when).toBe("Kal subah");
+    expect(tasks[0]?.when).toBe("tomorrowMorning");
     expect(prepTasksForEvening(data, m, addDays(wed, -1))).toHaveLength(0);
   });
   it("shows Plan B as the dish when Plan B is active, and skipped meals", () => {
@@ -295,5 +295,33 @@ describe("suggestions", () => {
   });
   it("covers every date of the week", () => {
     for (const d of weekDates(ANCHOR)) for (const slot of SLOTS) expect(suggestDishes(ctx, d, slot).length).toBeGreaterThan(0);
+  });
+});
+
+describe("cook message languages", () => {
+  const meals = byKey(draft());
+  const evening = ANCHOR; // Sat night, for Sunday (handvo needs prep tonight)
+  it("Hindi uses Devanagari dish names, prep and day names", () => {
+    const hi = seedPlannerData({ cookLanguage: "hindi" });
+    const msg = dailyMessage(hi, meals, evening);
+    expect(msg).toContain("नमस्ते Vimal जी");
+    expect(msg).toContain("रविवार 15 नवंबर");
+    expect(msg).toContain("नाश्ता: हांडवो");
+    expect(msg).toContain("आज रात: हांडवो का आटा दही में मिला के ढक के रख देना");
+    expect(msg.match(/Plan B:/g)?.length).toBe(3);
+  });
+  it("English uses English names and prep text", () => {
+    const en = seedPlannerData({ cookLanguage: "english" });
+    const msg = dailyMessage(en, meals, evening);
+    expect(msg).toContain("Tomorrow, Sunday 15 Nov (2 people):");
+    expect(msg).toContain("Breakfast: Dudhi Handvo");
+    expect(msg).toContain("Tonight: Mix handvo flour with curd");
+  });
+  it("every seed dish and prep has a Hindi version", async () => {
+    const { DISH_NAME_HI, PREP_HI } = await import("../seed/hindi");
+    for (const d of Object.values(data.dishes)) {
+      expect(DISH_NAME_HI[d.id], d.id).toBeTruthy();
+      if (d.prepAhead) expect(PREP_HI[d.id], d.id).toBeTruthy();
+    }
   });
 });

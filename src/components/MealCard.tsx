@@ -1,6 +1,6 @@
-"use client";
 import { useState, useTransition } from "react";
-import { eatingOutAction, planBAction, rateAction, servingsAction } from "@/app/actions";
+import { rateDish, setPlanB, setServings, toggleEatingOut } from "@/data/repo";
+import { eatingOutMessage, waLink } from "@/lib/core/cookMessages";
 import { SwapSheet, type DishLite } from "./SwapSheet";
 import { SLOT_LABEL } from "./ui";
 import { SendToCook } from "./SendToCook";
@@ -23,7 +23,19 @@ export interface MealCardProps {
   compact?: boolean;
 }
 
-type EatOut = Awaited<ReturnType<typeof eatingOutAction>>;
+interface EatOut { text: string; link: string; moved: { date: string; slot: string; dish: string } | null; stranded: string[] }
+
+async function eatingOut(date: string, slot: MealCardProps["slot"]): Promise<EatOut | null> {
+  const r = await toggleEatingOut(date, slot);
+  if (r.undone) return null;
+  const text = eatingOutMessage(r.data, r.meal, r.moved?.to);
+  return {
+    text,
+    link: waLink(r.data.settings.cookPhone, text),
+    moved: r.moved ? { date: r.moved.to.date, slot: r.moved.to.slot, dish: r.data.dishes[r.moved.to.dishId].nameEn } : null,
+    stranded: (r.stranded ?? []).map((id) => r.data.ingredients[id]?.nameEn ?? id),
+  };
+}
 
 export function MealCard(p: MealCardProps) {
   const [swap, setSwap] = useState(false);
@@ -68,7 +80,7 @@ export function MealCard(p: MealCardProps) {
         )}
         <button
           disabled={pending || !p.dish}
-          onClick={() => start(async () => setEatOut(await eatingOutAction(p.date, p.slot)))}
+          onClick={() => start(async () => setEatOut(await eatingOut(p.date, p.slot)))}
           className="h-11 flex-1 whitespace-nowrap rounded-xl border border-line px-4 font-medium active:bg-soft disabled:opacity-50"
         >
           {p.skipped ? "Undo eating out" : "Eating out"}
@@ -79,15 +91,15 @@ export function MealCard(p: MealCardProps) {
           <>
             <button
               disabled={pending}
-              onClick={() => start(() => planBAction(p.date, p.slot, !p.planBActive))}
+              onClick={() => start(() => setPlanB(p.date, p.slot, !p.planBActive))}
               className="h-11 flex-1 rounded-xl border border-line px-3 text-sm active:bg-soft"
             >
               {p.planBActive ? "Back to plan" : "Use Plan B"}
             </button>
             <div className="flex h-11 items-center rounded-xl border border-line">
-              <button aria-label="Fewer people" className="h-full w-10 text-lg" onClick={() => start(() => servingsAction(p.date, p.slot, p.servings - 1))}>−</button>
+              <button aria-label="Fewer people" className="h-full w-10 text-lg" onClick={() => start(() => setServings(p.date, p.slot, p.servings - 1))}>−</button>
               <span className="w-6 text-center text-sm">{p.servings}</span>
-              <button aria-label="More people" className="h-full w-10 text-lg" onClick={() => start(() => servingsAction(p.date, p.slot, p.servings + 1))}>+</button>
+              <button aria-label="More people" className="h-full w-10 text-lg" onClick={() => start(() => setServings(p.date, p.slot, p.servings + 1))}>+</button>
             </div>
           </>
         )}
@@ -100,7 +112,7 @@ export function MealCard(p: MealCardProps) {
             <button
               key={d}
               disabled={rated !== 0}
-              onClick={() => { setRated(d); start(() => rateAction(p.dish!.id, d)); }}
+              onClick={() => { setRated(d); start(() => rateDish(p.dish!.id, d)); }}
               className={`h-9 w-11 rounded-lg border border-line text-lg ${rated === d ? "bg-soft" : ""}`}
             >
               {d === 1 ? "👍" : "👎"}
@@ -110,7 +122,7 @@ export function MealCard(p: MealCardProps) {
         </div>
       )}
 
-      {eatOut && !eatOut.undone && (
+      {eatOut && p.skipped && (
         <div className="mt-3 space-y-2 rounded-xl bg-soft p-3 text-sm">
           {eatOut.moved && <p>Moved {eatOut.moved.dish} to {eatOut.moved.date} {eatOut.moved.slot}, so its fresh items get used.</p>}
           {eatOut.stranded.length > 0 && <p>Use soon: {eatOut.stranded.join(", ")} (no later slot fits).</p>}
