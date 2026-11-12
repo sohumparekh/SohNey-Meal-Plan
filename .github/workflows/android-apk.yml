@@ -65,12 +65,19 @@ jobs:
           ./gradlew assembleRelease --no-daemon --stacktrace
           rm -f "$ANDROID_KEYSTORE_FILE"
 
+      # Every release must carry the same signing key, or it won't install over the old app.
+      # This is the key's public fingerprint (not a secret).
       - name: Verify signature
+        env:
+          EXPECTED_CERT_SHA256: b5def2411c12405805e725442f1a2f55313c5e8547a9cd50803834d0cfe55f6b
         run: |
           APK=android/app/build/outputs/apk/release/app-release.apk
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           "$BT/apksigner" verify --print-certs "$APK" | tee signature.txt
-          grep -q "Signer #1 certificate SHA-256" signature.txt
+          if ! grep -qi "certificate SHA-256 digest: $EXPECTED_CERT_SHA256" signature.txt; then
+            echo "::error::APK is not signed with the household release key."
+            exit 1
+          fi
           cp "$APK" "ghar-ka-menu-$VERSION_NAME.apk"
 
       - name: Publish GitHub Release
