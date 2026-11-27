@@ -12,14 +12,14 @@ export function CounterScreen() {
   if (!v) return null;
   const items = v.lists.grocer.filter((i) => !i.ticked);
   return (
-    <div className="min-h-dvh py-4">
+    <div className="min-h-dvh py-2">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold">{v.data.settings.grocerName}</h1>
-        <Link to="/shopping?list=grocer" className="rounded-lg border border-line px-3 py-2 text-sm">Close</Link>
+        <h1 className="text-[26px] font-extrabold tracking-tight">{v.data.settings.grocerName}</h1>
+        <Link to="/shopping?list=grocer" className="btn-glass flex h-10 items-center rounded-full px-4 text-[14px] font-semibold">Close</Link>
       </div>
-      <ul className="space-y-3">
+      <ul className="glass-strong space-y-3 rounded-[28px] p-5">
         {items.map((i) => (
-          <li key={i.ingredientId} className="flex items-baseline justify-between gap-4 border-b border-line pb-3">
+          <li key={i.ingredientId} className="flex items-baseline justify-between gap-4 border-b border-[var(--line)] pb-3 last:border-0 last:pb-0">
             <span className="text-2xl font-semibold">{i.nameCook.split(" / ")[0]}<span className="ml-2 text-base font-normal text-muted">{i.nameEn}</span></span>
             <span className="shrink-0 text-2xl font-bold">{i.qtyLabel}</span>
           </li>

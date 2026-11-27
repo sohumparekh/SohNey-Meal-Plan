@@ -70,7 +70,7 @@ Dish: ${request}
 About us: vegetarian Gujarati household in Mumbai, 2 people. Our cook reads simple Hindi written in English letters (e.g. "Kobi ki sabzi, roti", "1 katori rajma paani mein bhigo dena").
 
 Rules:
-- Strictly vegetarian (no meat, fish or egg). If the dish isn't, make a vegetarian version.
+- Vegetarian (no meat or fish). Eggs are allowed ONLY in breakfast dishes, which are for Sohum alone (Neyomi doesn't eat eggs): for an egg dish use slots ["breakfast"], give egg quantities for ONE person, and the app pairs it with an egg-free dish for Neyomi.
 - Quantities for 2 people, in the unit listed for that ingredient (g, ml, pc or bunch).
 - Use ingredientId values from the catalogue below whenever one fits. Only if nothing fits, add it to "newIngredients" (snake_case id, category staple/fresh/specialty, source grocer/blinkit/either, shelfLifeDays in a Mumbai fridge) and use that id.
 - Mark pure garnish (coriander, mint, spring onion on top) as optional: true.
@@ -134,13 +134,18 @@ export function sanitize(d: DishDraftT, data: PlannerData): { dish: Dish; newIng
   let id = slug(d.nameEn.replace(/\+.*$/, "")) || "dish";
   while (data.dishes[id]) id = `${id}_2`;
   const pb = data.dishes[d.planBId];
-  const planBId = pb && isStaplesOnly(pb, data.ingredients) && !pb.prepAhead ? d.planBId : d.slots.includes("breakfast") ? "upma" : "dal_khichdi";
+  const hasEggs = ingredients.some((i) => i.ingredientId === "eggs");
+  const slots = hasEggs ? (["breakfast"] as const).slice() : d.slots;
+  const planBId = hasEggs
+    ? "masala_paratha"
+    : pb && isStaplesOnly(pb, data.ingredients) && !pb.prepAhead ? d.planBId : slots.includes("breakfast") ? "upma" : "dal_khichdi";
   return {
     dish: {
-      id, nameEn: d.nameEn, nameCook: d.nameCook, nameCookHi: d.nameCookHi ?? undefined, slots: d.slots,
+      id, nameEn: d.nameEn, nameCook: d.nameCook, nameCookHi: d.nameCookHi ?? undefined, slots: [...slots],
       cuisine: d.cuisine, effort: d.effort, kind: d.kind, ingredients,
       prepAhead: d.prepAhead && d.prepAhead.leadHours >= 4 ? d.prepAhead : undefined,
       planBId, recipeCook: d.recipeCook || undefined, active: true, rating: 0, lastCookedAt: null,
+      ...(hasEggs ? { forOne: true, neyomiAltId: "masala_paratha" } : {}),
     },
     newIngredients,
     dropped,

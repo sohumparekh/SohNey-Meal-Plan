@@ -31,8 +31,15 @@ with the same key.
 - **Staples vs fresh.** Staples (atta, dal, oil, spices, onion, potato…) are never
   counted; they come back on a restock cycle or when marked "running low". Fresh items
   are computed from the menu and rounded to shop units.
-- **Rotation.** 105 dishes and a 28-day rotation (`src/lib/seed/`). From Thursday the app
-  drafts next week; swap what you like and approve.
+- **Rotation.** 97 dishes from Neyomi's list (plus two close variations) and a 28-day
+  rotation (`src/lib/seed/`). From Thursday the app drafts next week; swap what you like
+  and approve. Dishes not in the 4 weeks still come up as swap suggestions.
+- **Eggs.** Egg dishes are breakfast-only and for Sohum; Neyomi automatically gets an
+  egg-free dish alongside (changeable with one tap). The cook's message says who gets what.
+- **Sides.** Raita, papad, kanda tomato salad, tomato chutney, achar, curd or aam ras can be
+  added to any meal; they go into the message and onto the shopping list.
+- **Weekly items.** Blueberries, vanilla ice cream and Epigamia Greek yogurt are on the
+  Blinkit list every week (editable in Settings). Avocados and mushrooms come from Shubham.
 - **Reminders** (India time, editable in Settings): every day 9 pm *Send tomorrow's menu*,
   4 pm *Check tonight's dinner*, Thursday 8 pm *Plan next week*, Friday 10 am *Send grocery
   order*. Tapping one opens a screen with one big **Send on WhatsApp** button. Reminders
@@ -59,7 +66,11 @@ android/             Capacitor Android project
 .github/workflows/   builds the signed APK and publishes a GitHub Release
 ```
 
-React + Vite + Tailwind, wrapped with Capacitor 8.
+React + Vite + Tailwind, wrapped with Capacitor 8. The look is a "liquid glass" design
+system (`src/ui/glass.tsx`, `src/index.css`): frosted panels over a slowly drifting colour
+field, a specular highlight that follows the finger, real refraction under the tab bar's
+lens (SVG displacement in `backdrop-filter`, Android WebView), spring physics everywhere
+(Motion), haptics, Undo toasts, and a Lite mode for slower phones.
 
 ```
 npm install

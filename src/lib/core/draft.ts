@@ -38,9 +38,11 @@ export function draftWeek(
           dishId = alt.dishId;
         }
       }
+      const chosen = ctx.dishes[dishId];
       const meal: Meal = {
         date, slot, dishId, servings: ctx.settings.servingsDefault, status: "planned", planB: false,
         originalDishId: null,
+        altDishId: chosen?.forOne ? chosen.neyomiAltId ?? "masala_paratha" : null,
       };
       meals[mealKey(date, slot)] = meal;
       out.push(meal);

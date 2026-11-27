@@ -79,6 +79,16 @@ export async function suggestionsFor(date: ISODate, slot: Slot) {
   });
 }
 
+/** Egg-free breakfast dishes, for the person who doesn't eat eggs. */
+export async function altSuggestions(date: ISODate) {
+  const { data, meals } = await weekContext(weekStartFor(date));
+  const recent = new Set(Object.values(meals).filter((m) => Math.abs(Date.parse(m.date) - Date.parse(date)) < 4 * 86400000).map((m) => m.dishId));
+  return Object.values(data.dishes)
+    .filter((d) => d.active !== false && d.slots.includes("breakfast") && !d.forOne && !d.ingredients.some((i) => i.ingredientId === "eggs"))
+    .sort((a, b) => Number(recent.has(a.id)) - Number(recent.has(b.id)) || (b.rating ?? 0) - (a.rating ?? 0) || a.nameEn.localeCompare(b.nameEn))
+    .map((d) => ({ id: d.id, nameEn: d.nameEn, nameCook: d.nameCook, cuisine: d.cuisine, effort: d.effort, reason: recent.has(d.id) ? "Had recently" : d.effort === "quick" ? "Quick to make" : "" }));
+}
+
 export async function lastSentFor(kinds: string[], forDate: ISODate): Promise<CookMessage | undefined> {
   const rows = await db.messages.where("forDate").equals(forDate).filter((m) => m.direction === "out" && kinds.includes(m.kind)).toArray();
   return rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
@@ -185,11 +195,42 @@ export async function swapMeal(date: ISODate, slot: Slot, dishId: string) {
   await ensureWeek(weekStartFor(date));
   const cur = await mealAt(date, slot);
   const s = await getSettings();
+  const dish = await db.dishes.get(dishId);
   await updateMeal({
     date, slot, dishId, servings: cur?.servings ?? s.servingsDefault,
     status: cur ? "swapped" : "planned", planB: false,
     originalDishId: cur?.originalDishId ?? cur?.dishId ?? null,
+    // egg dishes are for the egg eater only; the other person gets an egg-free dish
+    altDishId: dish?.forOne ? (cur?.altDishId && !(await isEggDishId(cur.altDishId)) ? cur.altDishId : dish.neyomiAltId ?? "masala_paratha") : null,
+    sides: cur?.sides ?? [],
   });
+  return cur;
+}
+
+async function isEggDishId(id: string) {
+  const d = await db.dishes.get(id);
+  return !!d?.ingredients.some((i) => i.ingredientId === "eggs");
+}
+
+/** Choose the egg-free dish served alongside an egg breakfast. */
+export async function setAltDish(date: ISODate, slot: Slot, altDishId: string) {
+  const m = await mealAt(date, slot);
+  if (!m || (await isEggDishId(altDishId))) return;
+  await updateMeal({ ...m, altDishId });
+}
+
+export async function toggleSide(date: ISODate, slot: Slot, sideId: string) {
+  const m = await mealAt(date, slot);
+  if (!m) return;
+  const sides = new Set(m.sides ?? []);
+  if (sides.has(sideId)) sides.delete(sideId);
+  else sides.add(sideId);
+  await updateMeal({ ...m, sides: [...sides] });
+}
+
+/** Put a meal back exactly as it was (used by Undo). */
+export async function restoreMeal(m: Meal) {
+  await updateMeal(m);
 }
 
 export async function setServings(date: ISODate, slot: Slot, servings: number) {

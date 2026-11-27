@@ -24,7 +24,7 @@ describe("Add with Claude", () => {
     expect(p).toContain("Dish: Methi malai paneer");
     expect(p).toContain('"planBId"');
     expect(p).toContain("paneer | Paneer | g");
-    expect(p).toContain("aloo_matar |");
+    expect(p).toContain("masala_khichdi |");
     expect(p).not.toContain("pav_bhaji |"); // not staples-only, so not a valid Plan B
   });
   it("accepts JSON wrapped in a markdown fence with extra text", () => {
@@ -51,8 +51,20 @@ describe("Add with Claude", () => {
     expect(dish.ingredients.some((i) => i.ingredientId === "truffle_oil")).toBe(true);
   });
   it("forces a staples-only Plan B and a unique id", () => {
-    const { dish } = sanitize({ ...base, nameEn: "Palak Paneer", planBId: "pav_bhaji" }, data);
-    expect(dish.id).toBe("palak_paneer_2");
+    const { dish } = sanitize({ ...base, nameEn: "Upma", planBId: "pav_bhaji" }, data);
+    expect(dish.id).toBe("upma_2");
     expect(perishablesOf(data.dishes[dish.planBId], data.ingredients)).toHaveLength(0);
+  });
+});
+
+describe("eggs rule", () => {
+  it("an egg dish becomes breakfast-only, for one, with an egg-free dish for Neyomi", () => {
+    const { dish } = sanitize({
+      ...base, nameEn: "Masala Omelette", slots: ["dinner"],
+      ingredients: [{ ingredientId: "eggs", qty: 2, optional: false }, { ingredientId: "onion", qty: 0.5, optional: false }],
+    }, data);
+    expect(dish.slots).toEqual(["breakfast"]);
+    expect(dish.forOne).toBe(true);
+    expect(data.dishes[dish.neyomiAltId!].ingredients.some((i) => i.ingredientId === "eggs")).toBe(false);
   });
 });

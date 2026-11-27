@@ -1,12 +1,13 @@
 // On-device database (IndexedDB via Dexie). Lives in the app's private storage on the
 // phone: survives app and phone restarts, and APK updates signed with the same key.
 import Dexie, { type Table } from "dexie";
-import { todayIST, type ISODate } from "../lib/core/dates";
+import { addDays, todayIST, weekStartFor, type ISODate } from "../lib/core/dates";
 import type { Rotation } from "../lib/core/draft";
 import { SEED_ROTATION } from "../lib/core/seedData";
 import { DEFAULT_SETTINGS, type Dish, type Ingredient, type Meal, type MissingItem, type Settings, type StapleState, type Week } from "../lib/core/types";
 import { DISHES } from "../lib/seed/dishes";
 import { INGREDIENTS } from "../lib/seed/ingredients";
+import { LEGACY_SEED_DISH_IDS } from "../lib/seed/legacyDishIds";
 
 export interface Tick { key: string; weekStart: ISODate; list: string; ingredientId: string; tickedAt: string }
 export interface CookMessage {
@@ -56,7 +57,7 @@ export function useDatabase(next: HouseDB) {
 }
 
 /** Bump when the seed library gains dishes/ingredients; only missing rows are added. */
-export const SEED_VERSION = 1;
+export const SEED_VERSION = 2;
 
 export async function getMeta<T>(key: string, fallback: T): Promise<T> {
   const row = await db.meta.get(key);
@@ -71,28 +72,50 @@ export async function touch() {
   await db.meta.put({ key: "updatedAt", value: new Date().toISOString() });
 }
 
-/** First run: load the dish library, rotation and default settings. Idempotent. */
+/**
+ * First run: load the dish library, rotation and default settings.
+ * Later library versions (v2 = Neyomi's list) update the phone's data in place:
+ * seed dishes get their new recipe but keep rating and "last made"; old seed dishes
+ * that are no longer in the library are switched off (history keeps working); dishes
+ * added in the app are never touched. Idempotent.
+ */
 export async function seedIfNeeded() {
   const version = await getMeta<number>("seedVersion", 0);
   if (version >= SEED_VERSION) return false;
-  await db.transaction("rw", [db.dishes, db.ingredients, db.meta, db.staples], async () => {
-    const haveIng = new Set(await db.ingredients.toCollection().primaryKeys());
-    await db.ingredients.bulkPut(INGREDIENTS.filter((i) => !haveIng.has(i.id)));
-    const haveDish = new Set(await db.dishes.toCollection().primaryKeys());
-    await db.dishes.bulkPut(
-      DISHES.filter((d) => !haveDish.has(d.id)).map((d) => ({ ...d, active: true, rating: 0, lastCookedAt: null })),
-    );
-    if (!(await db.meta.get("rotation"))) await db.meta.put({ key: "rotation", value: SEED_ROTATION as Rotation });
-    if (!(await db.meta.get("settings"))) await db.meta.put({ key: "settings", value: DEFAULT_SETTINGS satisfies Settings });
-    if (version === 0) {
-      // Assume the pantry is stocked today: dry staples start their restock cycle now.
-      const today = todayIST();
-      await db.staples.bulkPut(
-        INGREDIENTS.filter((i) => i.category === "staple" && (i.restockDays ?? 0) > 7).map((i) => ({
-          ingredientId: i.id, lastBought: today, lowReportedAt: null,
-        })),
-      );
+  const today = todayIST();
+  await db.transaction("rw", [db.dishes, db.ingredients, db.meta, db.staples, db.weeks, db.meals], async () => {
+    // ingredients: seed rows are reference data (sources, shelf life), so they are refreshed
+    await db.ingredients.bulkPut(INGREDIENTS);
+
+    const seedIds = new Set(DISHES.map((d) => d.id));
+    for (const d of DISHES) {
+      const cur = await db.dishes.get(d.id);
+      await db.dishes.put({
+        ...d,
+        active: cur?.active ?? true,
+        rating: cur?.rating ?? 0,
+        lastCookedAt: cur?.lastCookedAt ?? null,
+      });
     }
+    if (version > 0) {
+      for (const id of LEGACY_SEED_DISH_IDS) if (!seedIds.has(id)) await db.dishes.update(id, { active: false });
+      // future draft weeks are re-drafted from the new rotation; started or approved weeks stay
+      const thisWeek = weekStartFor(today);
+      const drafts = await db.weeks.filter((w) => w.weekStart > thisWeek && w.status === "draft").toArray();
+      for (const w of drafts) {
+        await db.meals.where("date").between(w.weekStart, addDays(w.weekStart, 6), true, true).delete();
+        await db.weeks.delete(w.weekStart);
+      }
+    }
+    await db.meta.put({ key: "rotation", value: SEED_ROTATION as Rotation });
+    if (!(await db.meta.get("settings"))) await db.meta.put({ key: "settings", value: DEFAULT_SETTINGS satisfies Settings });
+
+    // Dry staples start their restock cycle today (assume the pantry is stocked).
+    // Weekly basics (onion, potato...) get no row, so they are due every week.
+    for (const i of INGREDIENTS)
+      if (i.category === "staple" && (i.restockDays ?? 0) > 7 && !(await db.staples.get(i.id)))
+        await db.staples.put({ ingredientId: i.id, lastBought: today, lowReportedAt: null });
+
     await db.meta.put({ key: "seedVersion", value: SEED_VERSION });
   });
   return true;

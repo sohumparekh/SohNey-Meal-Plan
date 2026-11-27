@@ -25,6 +25,9 @@ list. Order the **Blinkit** tab in one go. The **Staples** tab only shows what's
 
 ## When plans change
 
+- **Undo:** every swap, Plan B and eating-out change shows an Undo button for a few seconds.
+- **Egg mornings:** the card shows Sohum's egg dish and Neyomi's egg-free dish; tap either to change it.
+- **Sides:** tap the ⌄ on a meal and pick raita, papad, salad, chutney, achar, curd or aam ras.
 - **Swap a meal:** Today or Week tab → Swap.
 - **Eating out:** tap **Eating out** on the meal. Its fresh items move to a later day if
   possible, and you get a **Tell the cook** button.
@@ -38,6 +41,11 @@ list. Order the **Blinkit** tab in one go. The **Staples** tab only shows what's
 Dishes → **+ Add dish** → **Add with Claude**: type the dish or paste a link, tap **Copy
 prompt**, paste it in the Claude app, copy Claude's reply, come back, **Paste from
 clipboard**, check, **Save**. Or choose **Type it in**.
+
+## Weekly extras
+
+Blueberries, vanilla ice cream and Greek yogurt are added to the Blinkit list every week.
+Change the amounts in Settings → "Every week, whatever the menu".
 
 ## Data
 

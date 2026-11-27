@@ -21,6 +21,11 @@ export function packLabel(ing: Ingredient, packs: number) {
     const ml = packs * ing.pack;
     return ml >= 1000 ? `${fmtNum(ml / 1000)} L` : `${ml} ml`;
   }
-  if (ing.unit === "pc" && ing.pack === 1) return `${packs} pc`;
+  if (ing.unit === "pc" && ing.pack === 1) {
+    if (ing.packLabel === "1 pc") return `${packs} pc`;
+    const one = ing.packLabel.match(/^1 (tub|cup|box|tin|pack|packet|block|jar)$/);
+    if (one) return packs === 1 ? ing.packLabel : `${packs} ${one[1]}${one[1].endsWith("x") ? "es" : "s"}`;
+    return packs === 1 ? ing.packLabel : `${packs} × ${ing.packLabel}`;
+  }
   return packs === 1 ? ing.packLabel : `${packs} × ${ing.packLabel}`;
 }

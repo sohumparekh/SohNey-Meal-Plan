@@ -18,6 +18,10 @@ export interface Meal {
   planB: boolean;
   /** The dish the rotation/draft originally put here, if it was changed. */
   originalDishId?: string | null;
+  /** Egg breakfasts are for Sohum only: this is Neyomi's egg-free dish alongside. */
+  altDishId?: string | null;
+  /** Side dishes added to this meal (ids from seed/sides.ts). */
+  sides?: string[];
   updatedAt?: string;
 }
 
@@ -56,6 +60,11 @@ export interface Settings {
   groceryDay: number;
   groceryTime: string;
   mealHours: Record<Slot, number>;
+  /** Who eats eggs (egg dishes are for this person only) and who doesn't. */
+  eggEater: string;
+  nonEggEater: string;
+  /** Bought every week regardless of the menu (e.g. Sohum's breakfast berries). */
+  weeklyExtras: { ingredientId: string; packs: number }[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -79,6 +88,13 @@ export const DEFAULT_SETTINGS: Settings = {
   groceryDay: 5,
   groceryTime: "10:00",
   mealHours: { breakfast: 8, lunch: 12, dinner: 20 },
+  eggEater: "Sohum",
+  nonEggEater: "Neyomi",
+  weeklyExtras: [
+    { ingredientId: "blueberries", packs: 2 },
+    { ingredientId: "vanilla_ice_cream", packs: 1 },
+    { ingredientId: "greek_yogurt", packs: 4 },
+  ],
 };
 
 export interface StapleState {

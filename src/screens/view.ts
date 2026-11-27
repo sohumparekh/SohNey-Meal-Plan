@@ -14,7 +14,7 @@ export function useLive<T>(fn: () => Promise<T>, deps: unknown[] = []) {
 export function dishLites(data: PlannerData): DishLite[] {
   return Object.values(data.dishes)
     .filter((d) => d.active !== false)
-    .map((d) => ({ id: d.id, nameEn: d.nameEn, nameCook: d.nameCook, slots: d.slots }))
+    .map((d) => ({ id: d.id, nameEn: d.nameEn, nameCook: d.nameCook, slots: d.slots, egg: d.ingredients.some((i) => i.ingredientId === "eggs") }))
     .sort((a, b) => a.nameEn.localeCompare(b.nameEn));
 }
 
@@ -28,6 +28,7 @@ export function mealCardProps(
   const m = meals[mealKey(date, slot)];
   const dish = m ? data.dishes[m.dishId] : undefined;
   const planB = dish ? data.dishes[dish.planBId] : undefined;
+  const alt = dish?.forOne && m?.altDishId ? data.dishes[m.altDishId] : undefined;
   const k = dayInWeek(date);
   let warning: string | null = null;
   const risk = opts.atRisk?.get(mealKey(date, slot));
@@ -54,6 +55,8 @@ export function mealCardProps(
     rating: dish?.rating ?? 0,
     allDishes: opts.allDishes,
     compact: opts.compact,
+    split: alt ? { eggEater: data.settings.eggEater, nonEggEater: data.settings.nonEggEater, altId: alt.id, altName: alt.nameEn } : null,
+    sides: m?.sides ?? [],
   };
 }
 

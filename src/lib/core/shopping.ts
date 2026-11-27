@@ -12,7 +12,8 @@
 import { addDays, dayInWeek, prettyDate, weekDates, type ISODate } from "./dates";
 import { packLabel, packsFor } from "./quantity";
 import { windowForDay, type Window } from "./shelf";
-import type { Ingredient, ListName, Meal, MissingItem, PlannerData, StapleState } from "./types";
+import { SIDE_BY_ID } from "../seed/sides";
+import type { Dish, Ingredient, ListName, Meal, MissingItem, PlannerData, StapleState } from "./types";
 
 export interface ShoppingItem {
   list: ListName;
@@ -71,23 +72,22 @@ export function buildShoppingLists(input: ShoppingInput): ShoppingLists {
   const dates = new Set(weekDates(weekStart));
   for (const meal of input.meals) {
     if (!dates.has(meal.date) || meal.status === "skipped") continue;
-    const dish = dishes[meal.dishId];
-    if (!dish) continue;
-    const factor = meal.servings / 2;
-    const k = dayInWeek(meal.date);
-    for (const di of dish.ingredients) {
-      const ing = ingredients[di.ingredientId];
-      if (!ing || ing.category === "staple") continue;
-      let win: Window | null = windowForDay(ing, k, settings.topupEnabled);
-      if (!win) {
-        if (di.optional) continue;
-        win = "topup"; // a manual swap put a fragile item late in the week: buy it fresh
+    for (const part of mealParts(input, meal)) {
+      const k = dayInWeek(meal.date);
+      for (const di of part.ingredients) {
+        const ing = ingredients[di.ingredientId];
+        if (!ing || ing.category === "staple") continue;
+        let win: Window | null = windowForDay(ing, k, settings.topupEnabled);
+        if (!win) {
+          if (di.optional) continue;
+          win = "topup"; // a manual swap put a fragile item late in the week: buy it fresh
+        }
+        const a = (acc[`${win}:${ing.id}`] ??= { need: 0, optional: 0, usedFor: [] });
+        if (di.optional) a.optional += di.qty * part.factor;
+        else a.need += di.qty * part.factor;
+        const label = `${prettyDate(meal.date).split(" ")[0]} ${SLOT_SHORT[meal.slot]}: ${part.label}`;
+        if (!a.usedFor.includes(label)) a.usedFor.push(label);
       }
-      const a = (acc[`${win}:${ing.id}`] ??= { need: 0, optional: 0, usedFor: [] });
-      if (di.optional) a.optional += di.qty * factor;
-      else a.need += di.qty * factor;
-      const label = `${prettyDate(meal.date).split(" ")[0]} ${SLOT_SHORT[meal.slot]}: ${dish.nameEn}`;
-      if (!a.usedFor.includes(label)) a.usedFor.push(label);
     }
   }
 
@@ -121,6 +121,21 @@ export function buildShoppingLists(input: ShoppingInput): ShoppingLists {
     }
   }
 
+  // standing weekly items (e.g. blueberries, ice cream, Greek yogurt)
+  for (const ex of settings.weeklyExtras ?? []) {
+    const ing = ingredients[ex.ingredientId];
+    if (!ing || ex.packs <= 0) continue;
+    const list = mainListFor(ing, settings.eitherGoesTo);
+    const existing = lists[list].find((x) => x.ingredientId === ing.id);
+    if (existing) {
+      existing.packs += ex.packs;
+      existing.qtyLabel = packLabel(ing, existing.packs);
+      existing.note = "Includes the weekly order";
+    } else {
+      lists[list].push(item(list, ing, ex.packs, [], "Every week"));
+    }
+  }
+
   // staples
   for (const ing of Object.values(ingredients)) {
     if (ing.category !== "staple" || !stapleDue(ing, input.staples[ing.id], weekStart)) continue;
@@ -149,14 +164,39 @@ export function buildShoppingLists(input: ShoppingInput): ShoppingLists {
   if (problem.size)
     for (const meal of input.meals) {
       if (meal.status === "skipped" || meal.planB) continue;
-      const dish = dishes[meal.dishId];
-      const hit = dish?.ingredients.filter((i) => !i.optional && problem.has(i.ingredientId)).map((i) => i.ingredientId);
-      if (hit?.length) lists.atRisk.push({ date: meal.date, slot: meal.slot, dishId: meal.dishId, ingredientIds: hit });
+      const parts = mealParts(input, meal);
+      const hit = [...new Set(parts.flatMap((p) => p.ingredients.filter((i) => !i.optional && problem.has(i.ingredientId)).map((i) => i.ingredientId)))];
+      if (hit.length) lists.atRisk.push({ date: meal.date, slot: meal.slot, dishId: meal.dishId, ingredientIds: hit });
     }
 
   const byName = (a: ShoppingItem, b: ShoppingItem) => a.nameEn.localeCompare(b.nameEn);
   for (const k of ["grocer", "blinkit", "topup", "staples"] as const) lists[k].sort(byName);
   return lists;
+}
+
+/**
+ * What a meal is made of, with how much of each recipe to cook:
+ *  - normal dish: the recipe (written for 2) scaled to the number of people;
+ *  - egg breakfast: the egg dish for the egg eater alone (recipe written for 1),
+ *    plus the egg-free dish for everyone else;
+ *  - sides: scaled to the number of people.
+ */
+export function mealParts(data: Pick<PlannerData, "dishes">, meal: Meal) {
+  const parts: { label: string; ingredients: Dish["ingredients"]; factor: number }[] = [];
+  const dish = data.dishes[meal.dishId];
+  if (!dish) return parts;
+  const alt = meal.altDishId ? data.dishes[meal.altDishId] : undefined;
+  if (dish.forOne && alt) {
+    parts.push({ label: dish.nameEn, ingredients: dish.ingredients, factor: 1 });
+    parts.push({ label: alt.nameEn, ingredients: alt.ingredients, factor: Math.max(1, meal.servings - 1) / 2 });
+  } else {
+    parts.push({ label: dish.nameEn, ingredients: dish.ingredients, factor: dish.forOne ? meal.servings : meal.servings / 2 });
+  }
+  for (const id of meal.sides ?? []) {
+    const side = SIDE_BY_ID[id];
+    if (side) parts.push({ label: side.nameEn, ingredients: side.ingredients, factor: meal.servings / 2 });
+  }
+  return parts;
 }
 
 /** Plain-text order for the office grocer (read out on a call, or shown at the counter). */

@@ -5,6 +5,8 @@ import { mealKey } from "../lib/core/types";
 import { compareWithLocal, exportAll, importAll, parseHouseholdFile } from "./backup";
 import { HouseDB, db, seedIfNeeded, useDatabase } from "./db";
 import * as repo from "./repo";
+import { DISHES } from "../lib/seed/dishes";
+import { LEGACY_SEED_DISH_IDS } from "../lib/seed/legacyDishIds";
 
 let n = 0;
 const freshPhone = async () => {
@@ -16,7 +18,7 @@ describe("on-device data", () => {
   beforeEach(freshPhone);
 
   it("seeds the library once and keeps edits when the app starts again", async () => {
-    expect(await db.dishes.count()).toBe(105);
+    expect(await db.dishes.count()).toBe(DISHES.length);
     await repo.setDishActive("pav_bhaji", false);
     expect(await seedIfNeeded()).toBe(false); // second start: nothing re-seeded
     expect((await db.dishes.get("pav_bhaji"))?.active).toBe(false);
@@ -105,5 +107,41 @@ describe("share plan / import between phones", () => {
   it("rejects files that are not ours", () => {
     expect(() => parseHouseholdFile("{}")).toThrow(/not a Ghar ka Menu file/);
     expect(() => parseHouseholdFile("hello")).toThrow(/not a Ghar ka Menu file/);
+  });
+});
+
+describe("updating a phone from library v1 to v2", () => {
+  it("keeps ratings, retires old dishes, keeps the started week, redrafts future drafts", async () => {
+    useDatabase(new HouseDB(`test-${++n}`));
+    const ws = weekStartFor(todayIST());
+    // a phone on v1: old dish rated and active, an old dish in this week's plan, next week drafted
+    await db.dishes.bulkPut([
+      { id: "sev_tameta", nameEn: "Sev Tameta", nameCook: "Sev tamatar", slots: ["lunch"], cuisine: "Gujarati", effort: "quick", kind: "roti_sabzi", ingredients: [], planBId: "batata_shaak", active: true, rating: 2, lastCookedAt: null },
+      { ...DISHES.find((d) => d.id === "kanda_poha")!, rating: 3, lastCookedAt: "2026-11-01", active: true },
+      { id: "my_own_dish", nameEn: "Mine", nameCook: "Mine", slots: ["dinner"], cuisine: "Gujarati", effort: "quick", kind: "other", ingredients: [], planBId: "dal_khichdi", active: true, rating: 0, lastCookedAt: null },
+    ]);
+    await db.meta.bulkPut([{ key: "seedVersion", value: 1 }, { key: "settings", value: { cookName: "Vimal", cookPhone: "9000000000" } }]);
+    await db.weeks.bulkPut([
+      { weekStart: ws, rotationWeek: 1, status: "approved" },
+      { weekStart: addDays(ws, 7), rotationWeek: 2, status: "draft" },
+    ]);
+    await db.meals.bulkPut([
+      { date: ws, slot: "lunch", dishId: "sev_tameta", servings: 2, status: "planned", planB: false },
+      { date: addDays(ws, 7), slot: "lunch", dishId: "sev_tameta", servings: 2, status: "planned", planB: false },
+    ]);
+    expect(LEGACY_SEED_DISH_IDS).toContain("sev_tameta");
+
+    await seedIfNeeded();
+
+    expect((await db.dishes.get("sev_tameta"))?.active).toBe(false);
+    expect((await db.dishes.get("kanda_poha"))?.rating).toBe(3);
+    expect((await db.dishes.get("kanda_poha"))?.lastCookedAt).toBe("2026-11-01");
+    expect((await db.dishes.get("my_own_dish"))?.active).toBe(true);
+    expect((await db.meals.get([ws, "lunch"]))?.dishId).toBe("sev_tameta"); // started week untouched
+    expect(await db.weeks.get(addDays(ws, 7))).toBeUndefined(); // draft removed, redrafted on open
+    expect((await repo.getSettings()).cookPhone).toBe("9000000000");
+    expect((await repo.getSettings()).weeklyExtras.map((e) => e.ingredientId)).toContain("blueberries");
+    expect((await db.ingredients.get("avocado"))?.source).toBe("grocer");
+    expect((await db.ingredients.get("mushroom"))?.source).toBe("grocer");
   });
 });

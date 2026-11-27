@@ -1,36 +1,57 @@
+import { motion } from "motion/react";
 import { Link } from "react-router-dom";
+import { haptic } from "@/native/haptics";
+import { Glass, rise, spring } from "@/ui/glass";
 
 export function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <section className={`rounded-2xl border border-line bg-card p-4 shadow-sm ${className}`}>{children}</section>;
+  return (
+    <Glass variants={rise} className={`p-4 ${className}`}>
+      {children}
+    </Glass>
+  );
 }
 
 export function Banner({ children, tone = "warn" }: { children: React.ReactNode; tone?: "warn" | "info" }) {
   return (
-    <div className={`rounded-xl px-4 py-3 text-sm ${tone === "warn" ? "bg-warn-bg text-warn-ink" : "bg-soft text-ink"}`}>{children}</div>
+    <motion.div
+      variants={rise}
+      className={`glass rounded-[22px] px-4 py-3 text-[14px] leading-snug ${tone === "warn" ? "text-warn-ink" : "text-ink"}`}
+      style={tone === "warn" ? { background: "linear-gradient(135deg, rgba(255,196,77,.38), rgba(255,170,60,.16))" } : undefined}
+    >
+      {children}
+    </motion.div>
   );
 }
 
-export function PageTitle({ title, sub }: { title: string; sub?: string }) {
+/** Large title, iOS style. */
+export function PageTitle({ title, sub, right }: { title: React.ReactNode; sub?: React.ReactNode; right?: React.ReactNode }) {
   return (
-    <header className="mb-4">
-      <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-      {sub && <p className="text-sm text-muted">{sub}</p>}
-    </header>
+    <motion.header variants={rise} className="mb-1 flex items-end justify-between gap-3 pt-1">
+      <div className="min-w-0">
+        {sub && <p className="text-[13px] font-semibold uppercase tracking-[0.06em] text-muted">{sub}</p>}
+        <h1 className="text-[34px] font-extrabold leading-[1.05] tracking-[-0.035em]">{title}</h1>
+      </div>
+      {right}
+    </motion.header>
   );
 }
 
 export function Pill({ children, active, href }: { children: React.ReactNode; active?: boolean; href: string }) {
   return (
-    <Link
-      to={href}
-      className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium ${active ? "bg-brand text-brand-ink" : "border border-line bg-card text-ink"}`}
-    >
-      {children}
+    <Link to={href} onClick={() => haptic.select()} className="relative shrink-0">
+      <motion.span
+        whileTap={{ scale: 0.94 }}
+        transition={spring}
+        className={`flex h-10 items-center rounded-full px-4 text-[14px] font-semibold ${active ? "btn-brand" : "btn-glass text-ink"}`}
+      >
+        {children}
+      </motion.span>
     </Link>
   );
 }
 
 export const SLOT_LABEL = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner" } as const;
+export const SLOT_EMOJI = { breakfast: "☀️", lunch: "🍛", dinner: "🌙" } as const;
 
 export function WhatsAppIcon({ className = "h-5 w-5" }: { className?: string }) {
   return (

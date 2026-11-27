@@ -1,6 +1,7 @@
 // Messages for the cook in the language chosen in Settings: Hinglish (Hindi in English
 // letters, default), Hindi (Devanagari) or English. Also the grocer order and wa.me links.
-import { DISH_NAME_HI, PREP_HI } from "../seed/hindi";
+import { DISH_NAME_HI, PREP_HI, SIDE_NAME_HI } from "../seed/hindi";
+import { SIDE_BY_ID } from "../seed/sides";
 import { addDays, dayOfWeek, weekDates, type ISODate } from "./dates";
 import { SLOTS, mealKey, type CookLanguage, type Dish, type Meal, type PlannerData, type Slot } from "./types";
 
@@ -15,6 +16,7 @@ interface Strings {
   slotFor: Record<Slot, string>;
   people: (n: number) => string;
   planB: string;
+  bothGet: (dish: string) => string;
   notPlanned: string;
   eatingOut: string;
   newDish: string;
@@ -43,6 +45,7 @@ const T: Record<CookLanguage, Strings> = {
     slotFor: { breakfast: "nashte", lunch: "dopahar ke khane", dinner: "raat ke khane" },
     people: (n) => `(${n} log)`,
     planB: "Plan B",
+    bothGet: (d) => `dono ke liye ${d}`,
     notPlanned: "(abhi tay nahi)",
     eatingOut: "Nahi banana, hum bahar kha rahe hain",
     newDish: "Nayi dish, tarika:",
@@ -67,6 +70,7 @@ const T: Record<CookLanguage, Strings> = {
     slotFor: { breakfast: "नाश्ते", lunch: "दोपहर के खाने", dinner: "रात के खाने" },
     people: (n) => `(${n} लोग)`,
     planB: "Plan B",
+    bothGet: (d) => `दोनों के लिए ${d}`,
     notPlanned: "(अभी तय नहीं)",
     eatingOut: "नहीं बनाना, हम बाहर खा रहे हैं",
     newDish: "नई डिश, तरीका:",
@@ -91,6 +95,7 @@ const T: Record<CookLanguage, Strings> = {
     slotFor: { breakfast: "breakfast", lunch: "lunch", dinner: "dinner" },
     people: (n) => `(${n} people)`,
     planB: "Plan B",
+    bothGet: (d) => `${d} for both`,
     notPlanned: "(not decided yet)",
     eatingOut: "No cooking, we are eating out",
     newDish: "New dish, how to make:",
@@ -129,11 +134,44 @@ function prepText(dish: Dish, l: CookLanguage) {
   return dish.prepAhead.cook;
 }
 
+function sideName(id: string, l: CookLanguage) {
+  const side = SIDE_BY_ID[id];
+  if (!side) return id;
+  if (l === "hindi") return SIDE_NAME_HI[id] ?? side.nameCook;
+  return l === "english" ? side.nameEn : side.nameCook;
+}
+
+/** " + raita, papad" for a meal's sides, or "". */
+export function sidesSuffix(meal: Meal, l: CookLanguage) {
+  return meal.sides?.length ? ` + ${meal.sides.map((id) => sideName(id, l)).join(", ")}` : "";
+}
+
 /** The dish the cook should actually make (Plan B if switched). */
 export function effectiveDish(data: PlannerData, meal: Meal): Dish | undefined {
   const dish = data.dishes[meal.dishId];
-  if (meal.planB && dish) return data.dishes[dish.planBId] ?? dish;
+  if (meal.planB && dish) {
+    // an egg breakfast that can't happen: everyone gets the egg-free dish
+    if (dish.forOne && meal.altDishId && data.dishes[meal.altDishId]) return data.dishes[meal.altDishId];
+    return data.dishes[dish.planBId] ?? dish;
+  }
   return dish;
+}
+
+/** True when the meal is an egg dish for one person plus an egg-free dish for the other. */
+export function isSplitMeal(data: PlannerData, meal: Meal) {
+  const dish = data.dishes[meal.dishId];
+  return !!(dish?.forOne && meal.altDishId && data.dishes[meal.altDishId] && !meal.planB);
+}
+
+/** Short text for one meal, e.g. "Sohum: Omelette (2 ande) · Neyomi: Masala paratha, dahi + raita". */
+export function mealText(data: PlannerData, meal: Meal, l: CookLanguage = lang(data)) {
+  const s = data.settings;
+  if (isSplitMeal(data, meal)) {
+    const main = data.dishes[meal.dishId], alt = data.dishes[meal.altDishId!];
+    return `${s.eggEater}: ${cookName(main, l)} · ${s.nonEggEater}: ${cookName(alt, l)}${sidesSuffix(meal, l)}`;
+  }
+  const dish = effectiveDish(data, meal);
+  return dish ? `${cookName(dish, l)}${sidesSuffix(meal, l)}` : "?";
 }
 
 export interface PrepTask {
@@ -185,10 +223,13 @@ function mealLines(data: PlannerData, meal: Meal | undefined, slot: Slot, l: Coo
   const dish = effectiveDish(data, meal);
   if (!dish) return [`${icon} ${s.slot[slot]}: ?`];
   const servings = meal.servings !== data.settings.servingsDefault ? ` ${s.people(meal.servings)}` : "";
-  const lines = [`${icon} ${s.slot[slot]}: ${cookName(dish, l)}${servings}`];
+  const lines = [`${icon} ${s.slot[slot]}: ${mealText(data, meal, l)}${servings}`];
   if (!meal.planB) {
-    const pb = data.dishes[dish.planBId];
-    if (pb) lines.push(`    ${s.planB}: ${cookName(pb, l)}`);
+    if (isSplitMeal(data, meal)) lines.push(`    ${s.planB}: ${s.bothGet(cookName(data.dishes[meal.altDishId!], l))}`);
+    else {
+      const pb = data.dishes[dish.planBId];
+      if (pb) lines.push(`    ${s.planB}: ${cookName(pb, l)}`);
+    }
   }
   if (dish.recipeCook && !dish.lastCookedAt) {
     lines.push(`    ${s.newDish}`);
@@ -224,7 +265,7 @@ export function dinnerChangeMessage(data: PlannerData, meal: Meal) {
   const pb = dish && !meal.planB ? data.dishes[dish.planBId] : undefined;
   return [
     s.dinnerChanged(cook),
-    `🌙 ${s.slot.dinner}: ${dish ? cookName(dish, l) : "?"}`,
+    `🌙 ${s.slot.dinner}: ${mealText(data, meal, l)}`,
     ...(pb ? [`    ${s.planB}: ${cookName(pb, l)}`] : []),
   ].join("\n");
 }
@@ -244,8 +285,7 @@ export function weekOverviewMessage(data: PlannerData, meals: Record<string, Mea
     lines.push(`*${dayName(d, l)}*`);
     for (const slot of SLOTS) {
       const m = meals[mealKey(d, slot)];
-      const dish = m ? effectiveDish(data, m) : undefined;
-      const txt = !m ? "-" : m.status === "skipped" ? s.weekOut : dish ? cookName(dish, l) : "?";
+      const txt = !m ? "-" : m.status === "skipped" ? s.weekOut : mealText(data, m, l);
       lines.push(`  ${s.slot[slot]}: ${txt}`);
     }
   }

@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import { ActiveToggle } from "@/components/ActiveToggle";
-import { Card } from "@/components/ui";
+import { Card, PageTitle } from "@/components/ui";
+import { Stagger } from "@/ui/glass";
 import { getPlannerData } from "@/data/repo";
 import { cookName } from "@/lib/core/cookMessages";
 import { prettyDate } from "@/lib/core/dates";
@@ -21,17 +22,18 @@ export function DishScreen() {
     (ing.category === "staple" ? staple : fresh).push(line);
   }
   return (
-    <div className="space-y-4 pb-6">
-      <Link to="/dishes" className="text-sm text-muted">‹ Dishes</Link>
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight">{d.nameEn}</h1>
-        <p className="text-muted">Cook sees: <b>{cookName(d, data.settings.cookLanguage)}</b></p>
-        <p className="text-sm text-muted">{d.cuisine} · {d.effort} · {d.slots.join(", ")}{d.lastCookedAt ? ` · last made ${prettyDate(d.lastCookedAt)}` : ""}</p>
-      </header>
+    <Stagger className="space-y-4">
+      <Link to="/dishes" className="inline-block pt-1 text-[15px] font-semibold text-brand">‹ Dishes</Link>
+      <PageTitle sub={`${d.cuisine} · ${d.effort} · ${d.slots.join(", ")}`} title={d.nameEn} />
+      <p className="px-1 text-[14px] text-muted">
+        Cook sees: <b className="text-ink">{cookName(d, data.settings.cookLanguage)}</b>
+        {d.lastCookedAt ? ` · last made ${prettyDate(d.lastCookedAt)}` : ""}
+        {d.forOne && ` · for ${data.settings.eggEater} only, with ${data.dishes[d.neyomiAltId ?? ""]?.nameEn ?? "an egg-free dish"} for ${data.settings.nonEggEater}`}
+      </p>
       <Card>
-        <h2 className="mb-1 font-semibold">To buy (for 2)</h2>
+        <h2 className="mb-1 font-bold">To buy ({d.forOne ? "for 1" : "for 2"})</h2>
         {fresh.length ? <ul className="list-disc pl-5 text-sm">{fresh.map((l) => <li key={l}>{l}</li>)}</ul> : <p className="text-sm text-muted">Only staples.</p>}
-        <h2 className="mb-1 mt-3 font-semibold">From the pantry</h2>
+        <h2 className="mb-1 mt-3 font-bold">From the pantry</h2>
         <p className="text-sm text-muted">{staple.join(" · ")}</p>
       </Card>
       {d.prepAhead && <Card><h2 className="font-semibold">Prep ahead ★</h2><p className="text-sm">{d.prepAhead.en} ({d.prepAhead.leadHours} h before)</p><p className="text-sm text-muted">{d.prepAhead.cook}</p></Card>}
@@ -43,6 +45,6 @@ export function DishScreen() {
           <ActiveToggle id={d.id} active={d.active !== false} />
         </div>
       </Card>
-    </div>
+    </Stagger>
   );
 }

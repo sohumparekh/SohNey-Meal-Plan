@@ -26,16 +26,11 @@ export type Plan = string[][]; // [day 0..27][slot 0..2] -> dish id
 
 const HERBS = new Set(["coriander", "mint", "spring_onion", "curry_leaves"]);
 
-/** Dishes named in the household's current repertoire: each must appear at least once in 28 days. */
-export const FAVOURITES = new Set([
-  "kanda_poha", "batata_poha", "upma", "avocado_toast", "uttapam", "rava_uttapam", "masala_bhakri", "methi_thepla",
-  "besan_chilla", "moong_chilla", "sheera", "sabudana_khichdi", "idli_sambar", "masala_dosa", "veg_sandwich",
-  "palak_paneer", "jeera_aloo", "kobi_shaak", "bhinda_shaak", "tindora_shaak", "dudhi_chana", "sev_tameta",
-  "ringan_bateta", "gawar_shaak", "mix_veg", "gujarati_dal_bhaat", "tadka_dal_rice", "dal_khichdi", "kadhi_khichdi",
-  "rajma_chawal", "chole", "mushroom_rice", "veg_fried_rice", "veg_pulao", "manchurian_rice", "chilli_paneer",
-  "hakka_noodles", "flat_noodles", "korean_noodles", "vada_pav", "pav_bhaji", "misal_pav", "sev_puri", "pani_puri",
-  "bhel_puri", "thalipeeth_pithla", "pasta_arrabbiata",
-]);
+/** Dishes I derived from Neyomi's list (same ingredients). Everything else is from her list. */
+const DERIVED = new Set(["egg_bhurji_toast", "paneer_bhurji_toast"]);
+/** Dishes from the household's own list: the rotation tries to include each of them. */
+export const FAVOURITES = new Set(DISHES.filter((d) => !DERIVED.has(d.id)).map((d) => d.id));
+const isEgg = (d: Dish) => d.ingredients.some((i) => i.ingredientId === "eggs");
 
 export const dayInWeek = (day: number) => (day % 7) + 1; // 1..7
 export const isWeekend = (day: number) => day % 7 <= 1; // Sat, Sun
@@ -123,7 +118,7 @@ export function scorePlan(plan: Plan, cfg: RotationConfig): ScoreBreakdown {
     add("repeats", (days.length - 1) * 6);
     void id;
   }
-  for (const f of FAVOURITES) if (!occ[f]) add("missingFavourite", 25);
+  for (const f of FAVOURITES) if (!occ[f]) add("missingFavourite", 8);
 
   for (let day = 0; day < DAYS; day++) {
     const [b, l, dn] = plan[day].map((id) => DISH_BY_ID[id]);
@@ -167,7 +162,7 @@ export function scorePlan(plan: Plan, cfg: RotationConfig): ScoreBreakdown {
     const all = days.flat().map((id) => DISH_BY_ID[id]);
 
     const rs = lunches.filter((d) => d.kind === "roti_sabzi").length;
-    add("lunchRotiSabziTarget", Math.abs(rs - 5) * 5);
+    add("lunchRotiSabziTarget", Math.abs(rs - 4) * 5);
     const otherLunch = lunches.filter((d) => d.kind === "other").length;
     if (otherLunch > 1) add("lunchOther", (otherLunch - 1) * 4);
 
@@ -182,8 +177,10 @@ export function scorePlan(plan: Plan, cfg: RotationConfig): ScoreBreakdown {
     for (const c of Object.values(cuisineCount)) if (c > 2) add("dinnerCuisineCrowding", (c - 2) * 6);
     if (!dinners.some((d) => d.kind === "roti_sabzi")) add("noRotiSabziDinner", 5);
 
+    const eggs = days.filter((r) => isEgg(DISH_BY_ID[r[0]])).length;
+    add("eggBreakfastTarget", Math.abs(eggs - 2) * 6);
     const paneer = all.filter(usesPaneer).length;
-    if (paneer > 2) add("paneerOveruse", (paneer - 2) * 10);
+    if (paneer > 3) add("paneerOveruse", (paneer - 3) * 10);
 
     // purchase rounding, waste and top-up
     const need: Record<string, number> = {};

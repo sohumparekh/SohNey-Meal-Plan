@@ -142,8 +142,9 @@ describe("shopping lists", () => {
     expect(new Set(topup).size).toBe(topup.length);
     for (const it of lists.topup) expect(data.ingredients[it.ingredientId].category).not.toBe("staple");
   });
+  const weekly = new Set(data.settings.weeklyExtras.map((e) => e.ingredientId));
   it("only computes fresh items from the menu; staples only appear by restock cycle", () => {
-    for (const it of all) {
+    for (const it of all.filter((i) => !weekly.has(i.ingredientId))) {
       const ing = data.ingredients[it.ingredientId];
       if (ing.category === "staple") {
         expect(it.usedFor).toHaveLength(0);
@@ -158,7 +159,18 @@ describe("shopping lists", () => {
       meals.flatMap((m) => data.dishes[m.dishId].ingredients.map((i) => i.ingredientId)),
     );
     for (const it of all)
-      if (data.ingredients[it.ingredientId].category !== "staple") expect(needed.has(it.ingredientId)).toBe(true);
+      if (data.ingredients[it.ingredientId].category !== "staple" && !weekly.has(it.ingredientId)) expect(needed.has(it.ingredientId)).toBe(true);
+  });
+  it("adds the weekly Blinkit items (blueberries, ice cream, Greek yogurt) every week", () => {
+    const b = lists.blinkit.map((i) => i.ingredientId);
+    expect(b).toEqual(expect.arrayContaining(["blueberries", "vanilla_ice_cream", "greek_yogurt"]));
+    expect(lists.blinkit.find((i) => i.ingredientId === "greek_yogurt")?.packs).toBe(4);
+  });
+  it("buys avocados and mushrooms at Shubham, not Blinkit", () => {
+    const m = [meal(ANCHOR, "breakfast", "avocado_toast"), meal(ANCHOR, "dinner", "herbed_rice_mushroom")];
+    const l = buildShoppingLists({ ...data, weekStart: ANCHOR, meals: m, ticks: new Set(), staples: {}, missing: [], pickupDone: false });
+    expect(l.grocer.map((i) => i.ingredientId)).toEqual(expect.arrayContaining(["avocado", "mushroom"]));
+    expect(l.blinkit.find((i) => i.ingredientId === "avocado" || i.ingredientId === "mushroom")).toBeUndefined();
   });
   it("never puts milk or home-set curd on a list", () => {
     expect(all.find((i) => i.ingredientId === "milk" || i.ingredientId === "curd")).toBeUndefined();
@@ -171,12 +183,12 @@ describe("shopping lists", () => {
   });
   it("scales with servings and moves unreceived items to top-up with at-risk meals", () => {
     const sat = meals.filter((m) => m.date === ANCHOR);
-    const paneerMeal = meal(ANCHOR, "lunch", "palak_paneer", { servings: 4 });
+    const paneerMeal = meal(ANCHOR, "lunch", "palak_paneer_paratha", { servings: 4 });
     const custom = [...sat.filter((m) => m.slot !== "lunch"), paneerMeal];
     const l = buildShoppingLists({ ...data, weekStart: ANCHOR, meals: custom, ticks: new Set(), staples: {}, missing: [], pickupDone: true });
     expect(l.blinkit.find((i) => i.ingredientId === "paneer")?.packs).toBe(2); // 400 g
     expect(l.topup.find((i) => i.ingredientId === "paneer")?.note).toBe("Not received at pickup");
-    expect(l.atRisk.some((r) => r.dishId === "palak_paneer")).toBe(true);
+    expect(l.atRisk.some((r) => r.dishId === "palak_paneer_paratha")).toBe(true);
   });
   it("puts staples due by cycle or reported low on the staples list", () => {
     const l = buildShoppingLists({
@@ -198,18 +210,18 @@ describe("shopping lists", () => {
 describe("eating out", () => {
   it("moves a fresh dish to a later staples-only meal in the same delivery window", () => {
     const meals = [
-      meal(ANCHOR, "dinner", "palak_paneer"),
+      meal(ANCHOR, "dinner", "palak_paneer_paratha"),
       meal(addDays(ANCHOR, 1), "lunch", "batata_shaak"),
       meal(addDays(ANCHOR, 1), "dinner", "dal_khichdi"),
     ];
     const r = planEatingOut(data, meals, ANCHOR, "dinner");
     expect(r.skipped.status).toBe("skipped");
-    expect(r.moved?.to.dishId).toBe("palak_paneer");
+    expect(r.moved?.to.dishId).toBe("palak_paneer_paratha");
     expect(r.moved?.to.date).toBe(addDays(ANCHOR, 1));
     expect(r.moved?.replacedDishId).toBe("batata_shaak");
   });
   it("does not move palak past its 2-day shelf life", () => {
-    const meals = [meal(addDays(ANCHOR, 1), "dinner", "palak_paneer"), meal(addDays(ANCHOR, 2), "dinner", "dal_khichdi")];
+    const meals = [meal(addDays(ANCHOR, 1), "dinner", "palak_paneer_paratha"), meal(addDays(ANCHOR, 2), "dinner", "dal_khichdi")];
     const r = planEatingOut(data, meals, addDays(ANCHOR, 1), "dinner");
     expect(r.moved).toBeUndefined();
     expect(r.stranded).toContain("palak");
@@ -251,7 +263,7 @@ describe("cook messages", () => {
       [mealKey(d, "dinner")]: meal(d, "dinner", "pav_bhaji", { status: "skipped" }),
     };
     const msg = dailyMessage(data, m, ANCHOR);
-    expect(msg).toContain(`Nashta: ${data.dishes.besan_chilla.nameCook}`);
+    expect(msg).toContain(`Nashta: ${data.dishes.kanda_poha.nameCook}`);
     expect(msg).toContain("bahar kha rahe hain");
   });
   it("week overview lists 7 days", () => {
@@ -299,23 +311,24 @@ describe("suggestions", () => {
 });
 
 describe("cook message languages", () => {
-  const meals = byKey(draft());
-  const evening = ANCHOR; // Sat night, for Sunday (handvo needs prep tonight)
+  const sun = addDays(ANCHOR, 1);
+  const meals = byKey([meal(sun, "breakfast", "kanda_poha"), meal(sun, "lunch", "rajma_chawal"), meal(sun, "dinner", "pav_bhaji")]);
+  const evening = ANCHOR; // Sat night, for Sunday (rajma needs soaking tonight)
   it("Hindi uses Devanagari dish names, prep and day names", () => {
     const hi = seedPlannerData({ cookLanguage: "hindi" });
     const msg = dailyMessage(hi, meals, evening);
     expect(msg).toContain("नमस्ते Vimal जी");
     expect(msg).toContain("रविवार 15 नवंबर");
-    expect(msg).toContain("नाश्ता: हांडवो");
-    expect(msg).toContain("आज रात: हांडवो का आटा दही में मिला के ढक के रख देना");
+    expect(msg).toContain("नाश्ता: कांदा पोहे");
+    expect(msg).toContain("आज रात: 1 कटोरी राजमा पानी में भिगो देना");
     expect(msg.match(/Plan B:/g)?.length).toBe(3);
   });
   it("English uses English names and prep text", () => {
     const en = seedPlannerData({ cookLanguage: "english" });
     const msg = dailyMessage(en, meals, evening);
     expect(msg).toContain("Tomorrow, Sunday 15 Nov (2 people):");
-    expect(msg).toContain("Breakfast: Dudhi Handvo");
-    expect(msg).toContain("Tonight: Mix handvo flour with curd");
+    expect(msg).toContain("Breakfast: Poha");
+    expect(msg).toContain("Tonight: Soak 1 cup rajma in water");
   });
   it("every seed dish and prep has a Hindi version", async () => {
     const { DISH_NAME_HI, PREP_HI } = await import("../seed/hindi");
@@ -323,5 +336,45 @@ describe("cook message languages", () => {
       expect(DISH_NAME_HI[d.id], d.id).toBeTruthy();
       if (d.prepAhead) expect(PREP_HI[d.id], d.id).toBeTruthy();
     }
+  });
+});
+
+describe("eggs: breakfast for Sohum, egg-free for Neyomi", () => {
+  const mon = addDays(ANCHOR, 2);
+  const egg = meal(mon, "breakfast", "omelette", { altDishId: "masala_paratha" });
+  it("egg dishes are breakfast-only, for one, and paired with an egg-free dish", () => {
+    for (const d of Object.values(data.dishes).filter((x) => x.ingredients.some((i) => i.ingredientId === "eggs"))) {
+      expect(d.slots, d.id).toEqual(["breakfast"]);
+      expect(d.forOne, d.id).toBe(true);
+      const alt = data.dishes[d.neyomiAltId!];
+      expect(alt.ingredients.some((i) => i.ingredientId === "eggs"), d.id).toBe(false);
+      expect(alt.slots).toContain("breakfast");
+    }
+  });
+  it("the cook's message says who gets what, with an egg-free Plan B for both", () => {
+    const msg = dailyMessage(data, byKey([egg]), addDays(mon, -1));
+    expect(msg).toContain("Nashta: Sohum: Omelette (2 ande) · Neyomi: Masala paratha, dahi");
+    expect(msg).toContain("Plan B: dono ke liye Masala paratha, dahi");
+  });
+  it("buys eggs for one and paratha for one", () => {
+    const l = buildShoppingLists({ ...data, weekStart: ANCHOR, meals: [egg], ticks: new Set(), staples: {}, missing: [], pickupDone: false });
+    expect(l.blinkit.find((i) => i.ingredientId === "eggs")?.packs).toBe(1); // 2 eggs -> one tray of 6
+  });
+  it("drafts egg breakfasts with Neyomi's dish filled in", () => {
+    const meals = draft();
+    for (const m of meals.filter((x) => data.dishes[x.dishId].forOne)) {
+      expect(m.slot).toBe("breakfast");
+      expect(m.altDishId).toBeTruthy();
+    }
+  });
+});
+
+describe("sides", () => {
+  it("appear in the message and on the shopping list", () => {
+    const m = meal(ANCHOR, "dinner", "masala_khichdi", { sides: ["raita", "papad"] });
+    const msg = dailyMessage(data, byKey([m]), addDays(ANCHOR, -1));
+    expect(msg).toContain("Raat: Masala khichdi, dahi + Raita, Papad");
+    const l = buildShoppingLists({ ...data, weekStart: ANCHOR, meals: [m], ticks: new Set(), staples: {}, missing: [], pickupDone: false });
+    expect(l.grocer.find((i) => i.ingredientId === "cucumber")?.usedFor.join()).toContain("Raita");
   });
 });

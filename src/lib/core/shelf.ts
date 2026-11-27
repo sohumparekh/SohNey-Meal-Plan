@@ -43,3 +43,6 @@ export function needsTopup(dish: Dish, dayInWeek: number, ingredients: Record<st
     (i) => windowForDay(ingredients[i.ingredientId], dayInWeek) === "topup",
   );
 }
+
+/** Egg dishes are breakfast-only and for the egg eater alone. */
+export const isEggDish = (dish: Dish) => dish.ingredients.some((i) => i.ingredientId === "eggs");

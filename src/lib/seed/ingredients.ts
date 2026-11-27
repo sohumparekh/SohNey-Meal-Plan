@@ -76,6 +76,11 @@ const ROWS: Row[] = [
   ["cornflour", "Cornflour", "Cornflour", "staple", "blinkit", "g", 200, "200 g", 180, 60, "200 g"],
   ["oats", "Rolled oats", "Oats", "staple", "blinkit", "g", 1000, "1 kg", 180, 30, "1 kg"],
   ["papad", "Papad", "Papad", "staple", "blinkit", "pc", 20, "1 packet", 180, 45, "1 packet"],
+  ["whole_masoor", "Whole masoor (brown dal)", "Sabut masoor", "staple", "blinkit", "g", 500, "500 g", 180, 45, "500 g"],
+  ["bajra_atta", "Bajra atta", "Bajre ka atta", "staple", "blinkit", "g", 1000, "1 kg", 60, 45, "1 kg"],
+  ["khakhra", "Khakhra", "Khakhra", "staple", "blinkit", "pc", 10, "1 packet (~10)", 60, 14, "2 packets"],
+  ["tea", "Tea leaves", "Chai patti", "staple", "blinkit", "g", 250, "250 g", 180, 45, "250 g"],
+  ["achar", "Maharashtrian achar", "Achar", "staple", "blinkit", "g", 400, "400 g jar", 365, 60, "1 jar"],
 
   // ---------- STAPLES: oils, dairy, sweeteners ----------
   ["oil", "Cooking oil", "Tel", "staple", "blinkit", "ml", 1000, "1 L", 180, 21, "1 L"],
@@ -151,7 +156,7 @@ const ROWS: Row[] = [
   ["spring_onion", "Spring onion", "Hara pyaaz", "fresh", "grocer", "bunch", 1, "1 bunch", 3],
   ["palak", "Palak", "Palak", "fresh", "grocer", "bunch", 1, "1 bunch", 2],
   ["methi", "Methi leaves", "Methi", "fresh", "grocer", "bunch", 1, "1 bunch", 2],
-  ["mushroom", "Button mushrooms", "Mushroom", "fresh", "either", "g", 200, "200 g box", 2],
+  ["mushroom", "Button mushrooms", "Mushroom", "fresh", "grocer", "g", 200, "200 g box", 2],
   ["bhindi", "Bhindi", "Bhindi", "fresh", "grocer", "g", 250, "250 g", 3],
   ["turai", "Ridge gourd", "Turai / dodka", "fresh", "grocer", "g", 250, "250 g", 3],
   ["broccoli", "Broccoli", "Broccoli", "fresh", "either", "g", 250, "1 head (~250 g)", 3],
@@ -172,6 +177,9 @@ const ROWS: Row[] = [
   ["pumpkin", "Red pumpkin", "Lal kaddu / bhopla", "fresh", "grocer", "g", 500, "500 g slice", 10],
   ["beetroot", "Beetroot", "Beetroot", "fresh", "grocer", "pc", 1, "1 pc", 10],
   ["banana", "Banana", "Kela", "fresh", "grocer", "pc", 1, "1 pc", 4],
+  ["raw_banana", "Raw banana", "Kaccha kela", "fresh", "grocer", "pc", 1, "1 pc", 5],
+  ["chawli", "Chawli (long beans)", "Chawli / choli", "fresh", "grocer", "g", 250, "250 g", 4],
+  ["eggs", "Eggs", "Ande", "fresh", "blinkit", "pc", 6, "6 eggs", 14],
 
   // ---------- FRESH: dairy & bakery (Blinkit, or either) ----------
   ["paneer", "Paneer", "Paneer", "fresh", "blinkit", "g", 200, "200 g pack", 4],
@@ -180,7 +188,7 @@ const ROWS: Row[] = [
   ["dabeli_pav", "Dabeli pav", "Dabeli pav", "fresh", "either", "pc", 6, "1 packet (6)", 2],
   ["sandwich_bread", "Sandwich bread", "Bread", "fresh", "either", "pc", 16, "1 loaf (~16 slices)", 4],
   ["protein_bread", "High-protein bread", "Protein bread", "specialty", "blinkit", "pc", 12, "1 loaf (~12 slices)", 5],
-  ["avocado", "Avocado", "Avocado", "specialty", "blinkit", "pc", 1, "1 pc", 3],
+  ["avocado", "Avocado", "Avocado", "fresh", "grocer", "pc", 1, "1 pc", 3],
   ["tortilla", "Wheat tortillas", "Tortilla", "specialty", "blinkit", "pc", 6, "1 pack (6)", 10],
   ["cheese", "Cheese block (veg)", "Cheese", "specialty", "blinkit", "g", 200, "200 g", 30],
   ["cheese_slice", "Cheese slices (veg)", "Cheese slice", "specialty", "blinkit", "pc", 10, "1 pack (10)", 30],
@@ -195,7 +203,7 @@ const ROWS: Row[] = [
 
   // ---------- SPECIALTY: noodles, pasta, sauces (Blinkit) ----------
   ["hakka_noodles", "Hakka noodles (veg)", "Hakka noodles", "specialty", "blinkit", "g", 150, "150 g packet", 180],
-  ["flat_noodles", "Flat rice noodles", "Flat noodles", "specialty", "blinkit", "g", 200, "200 g packet", 180],
+  ["flat_noodles", "Flat rice noodles", "Rice noodles", "specialty", "blinkit", "g", 200, "200 g packet", 180],
   ["ramen_noodles", "Plain ramen noodles (veg)", "Ramen noodles", "specialty", "blinkit", "pc", 1, "1 block", 180],
   ["penne", "Penne pasta", "Pasta", "specialty", "blinkit", "g", 500, "500 g", 180],
   ["schezwan_sauce", "Schezwan sauce", "Schezwan chutney", "specialty", "blinkit", "g", 250, "250 g", 90],
@@ -203,6 +211,16 @@ const ROWS: Row[] = [
   ["gochujang", "Gochujang (veg)", "Gochujang", "specialty", "blinkit", "g", 200, "200 g tub", 180],
   ["peanut_butter", "Peanut butter", "Peanut butter", "specialty", "blinkit", "g", 350, "350 g jar", 90],
   ["baked_beans", "Baked beans (tin)", "Baked beans", "specialty", "blinkit", "pc", 1, "1 tin", 365],
+  ["spaghetti", "Spaghetti", "Spaghetti", "specialty", "blinkit", "g", 500, "500 g", 180],
+  ["basil", "Fresh basil", "Basil (tulsi jaisa patta)", "fresh", "blinkit", "bunch", 1, "1 pack (~20 g)", 4],
+  ["cherry_tomato", "Cherry tomatoes", "Cherry tamatar", "fresh", "blinkit", "g", 200, "200 g box", 5],
+  ["coconut_milk", "Coconut milk", "Nariyal ka doodh", "specialty", "blinkit", "ml", 200, "200 ml pack", 365],
+  ["mango_pulp", "Kesar mango pulp (aam ras)", "Aam ras", "specialty", "blinkit", "g", 850, "850 g tin", 365],
+
+  // ---------- Weekly for Sohum's breakfast (standing Blinkit order) ----------
+  ["blueberries", "Blueberries", "Blueberries", "fresh", "blinkit", "pc", 1, "125 g box", 7],
+  ["vanilla_ice_cream", "Vanilla ice cream", "Vanilla ice cream", "specialty", "blinkit", "pc", 1, "1 tub", 90],
+  ["greek_yogurt", "Epigamia Greek yogurt", "Greek yogurt", "fresh", "blinkit", "pc", 1, "1 cup", 14],
 ];
 
 export const INGREDIENTS: Ingredient[] = ROWS.map(
